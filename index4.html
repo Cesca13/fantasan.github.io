@@ -103,9 +103,10 @@ button, select{
 <div id="info">Punteggio: 0</div>
 <div id="game"></div>
 
-<script>
+<script type="module">
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 
 let score = 0;
 let startTime;
