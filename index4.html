@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Reflex Click Arcade</title>
+<title>Conti-Click</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
@@ -103,9 +103,11 @@ button, select{
 <div id="info">Punteggio: 0</div>
 <div id="game"></div>
 
-<script type="module">
-import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+<script>
+const supabaseClient = supabase.createClient(
+  "https://xloiaewcuwelufblecxf.supabase.co",
+  "sb_publishable_SlM0ePMXPgoJjC47P8o-IQ_w6iEn_OP"
+);
 
 
 let score = 0;
