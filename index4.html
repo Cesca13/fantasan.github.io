@@ -2,8 +2,9 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Reflex Click 4</title>
+<title>Reflex Click Arcade</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
 body{
   margin:0;
@@ -12,6 +13,7 @@ body{
   font-family:Arial;
   text-align:center;
 }
+
 #game{
   position:relative;
   width:100vw;
@@ -19,18 +21,31 @@ body{
   border:2px solid white;
   overflow:hidden;
   margin-top:20px;
+
+  /* Sfondo */
+ /* background: linear-gradient(135deg, #1a1a1a, #333); /* sfondo gradiente scuro */
+  /* Per immagine di sfondo invece:*/
+  background: url('https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/reflex_backgrounnd.png') center/cover no-repeat;
+  
+  /* Nitidezza / contrasto */
+  filter: contrast(0.8); /* aumenta nitidezza */
 }
+
+
 .target{
   position:absolute;
   width:100px;
   height:100px;
   border-radius:50%;
   cursor:pointer;
+  touch-action: manipulation;
 }
+
 #info{
   margin-top:10px;
   font-size:22px;
 }
+
 button, select{
   padding:10px 25px;
   font-size:18px;
@@ -40,9 +55,8 @@ button, select{
 </head>
 <body>
 
-<h1>🎯 Reflex Click</h1>
+<h1>🎯 Reflex Click Arcade</h1>
 
-<!-- Dropdown per il nome -->
 <select id="playerName">
   <option value="">Scegli il tuo nome</option>
   <option value="Alice">Alice</option>
@@ -52,7 +66,8 @@ button, select{
 </select>
 
 <button onclick="startGame()">START</button>
-<div id="info">Punteggio: 0 | Tempo: 30</div>
+
+<div id="info">Punteggio: 0</div>
 <div id="game"></div>
 
 <script>
@@ -62,105 +77,144 @@ const supabaseClient = supabase.createClient(
 );
 
 let score = 0;
-let timeLeft = 30;
-let gameInterval;
+let startTime;
+let timerInterval;
 let spawnInterval;
+let currentPlayerName = "";
+let spawnDelay = 500; // intervallo iniziale di spawn (ms)
+let targetsPerSpawn = 2; // numero iniziale di target ogni spawn
+let badProbability = 0.5; // 50% cattivi iniziale
+
+const TARGET_SCORE = 100;
+
+// Array immagini bersagli
+const goodTargets = [
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/CC1.png',
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/CC2.png',
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/CC3.png'
+];
+
+const badTargets = [
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/AM1.png',
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/AM2.png',
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/AM3.png'
+];
 
 function startGame(){
   const nameSelect = document.getElementById("playerName");
-  const playerName = nameSelect.value;
-  if(!playerName){
+  currentPlayerName = nameSelect.value;
+
+  if(!currentPlayerName){
     alert("Seleziona un nome prima di iniziare!");
     return;
   }
 
   score = 0;
-  timeLeft = 30;
+  startTime = performance.now();
+  spawnDelay = 500;
+  targetsPerSpawn = 2;
+  badProbability = 0.5;
+
   updateInfo();
 
-  // Disabilita dropdown e bottone durante il gioco
   nameSelect.disabled = true;
   document.querySelector("button").disabled = true;
 
-  // Timer principale
-  gameInterval = setInterval(()=>{
-    timeLeft--;
-    updateInfo();
-    if(timeLeft <= 0) endGame(playerName);
-  },1000);
-
-  // Generazione bersagli
-  spawnInterval = setInterval(spawnTarget,700);
+  timerInterval = setInterval(updateInfo, 200);
+  spawnInterval = setInterval(dynamicSpawn, spawnDelay);
 }
 
 function updateInfo(){
   document.getElementById("info").innerText =
-    `Punteggio: ${score} | Tempo: ${timeLeft}`;
+    `Punteggio: ${score} | Obiettivo: ${TARGET_SCORE}`;
 }
 
-function spawnTarget(){
+// funzione dinamica di spawn: aumenta difficoltà con il punteggio
+function dynamicSpawn(){
+  for(let i=0; i<targetsPerSpawn; i++){
+    createTarget();
+  }
+
+  // aumenta difficoltà in base al punteggio
+  if(score >= 30 && score < 60){
+    spawnDelay = 400;
+    targetsPerSpawn = 3;
+    badProbability = 0.6;
+  } else if(score >= 60 && score < 90){
+    spawnDelay = 300;
+    targetsPerSpawn = 4;
+    badProbability = 0.7;
+  } else if(score >= 90){
+    spawnDelay = 200;
+    targetsPerSpawn = 5;
+    badProbability = 0.8;
+  }
+
+  // aggiorna intervallo
+  clearInterval(spawnInterval);
+  spawnInterval = setInterval(dynamicSpawn, spawnDelay);
+}
+
+function createTarget(){
   const game = document.getElementById("game");
   const target = document.createElement("div");
   target.classList.add("target");
 
-  // 30% bersaglio “buono” (immagine), 70% rosso
-  const isGood = Math.random() < 0.65;
+  const isGood = Math.random() < (1 - badProbability);
+  const imgArray = isGood ? goodTargets : badTargets;
+  const img = imgArray[Math.floor(Math.random() * imgArray.length)];
 
-  if(isGood){
-    // Qui inserisci il link della tua immagine
-    target.style.backgroundImage = "url('https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/Screenshot%202026-02-08%20alle%2002.12.37.png')"; 
-    target.style.backgroundSize = "cover";
-    target.style.backgroundPosition = "center";
-    target.style.backgroundRepeat = "no-repeat";
-  } else {
-    target.style.background = "red";
-  }
+  target.style.backgroundImage = `url('${img}')`;
+  target.style.backgroundSize = "cover";
+  target.style.backgroundPosition = "center";
+  target.style.backgroundRepeat = "no-repeat";
 
-  const x = Math.random() * (game.clientWidth - 60);
-  const y = Math.random() * (game.clientHeight - 60);
+  const x = Math.random() * (game.clientWidth - 100);
+  const y = Math.random() * (game.clientHeight - 100);
   target.style.left = x + "px";
   target.style.top = y + "px";
 
-  target.addEventListener("pointerdown", ()=>{
+  target.addEventListener("pointerdown", (e)=>{
+    e.preventDefault();
     if(isGood){
       score += 10;
     } else {
       score -= 15;
     }
     updateInfo();
+    if(score >= TARGET_SCORE){
+      endGame();
+    }
     target.remove();
   });
 
   game.appendChild(target);
-
-  // Sparisce dopo 800ms
-  setTimeout(()=> target.remove(), 900);
+  setTimeout(()=> target.remove(), 2000);
 }
 
-async function endGame(playerName){
-  clearInterval(gameInterval);
+async function endGame(){
+  clearInterval(timerInterval);
   clearInterval(spawnInterval);
 
-  // Salvataggio su Supabase
+  const duration = (performance.now() - startTime) / 1000;
+
   await supabaseClient.from("scores").insert({
-    name: playerName,
-    score: score
+    name: currentPlayerName,
+    score: score,
+    duration: duration
   });
 
-  alert(`Fine! ${playerName} ha segnato ${score} punti.`);
+  alert(`Fine! Grazie per aver giocato 🫶🏻`);
 
-  // Rimuovi il nome usato dalla dropdown
   const nameSelect = document.getElementById("playerName");
   const optionToRemove = Array.from(nameSelect.options)
-    .find(opt => opt.value === playerName);
+    .find(opt => opt.value === currentPlayerName);
   if(optionToRemove) optionToRemove.remove();
 
-  // Reset dropdown e bottone
   nameSelect.value = "";
   nameSelect.disabled = false;
   document.querySelector("button").disabled = false;
 
-  // Pulizia area di gioco
   document.getElementById("game").innerHTML = "";
   updateInfo();
 }
