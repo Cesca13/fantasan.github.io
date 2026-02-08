@@ -96,6 +96,7 @@ button, select{
   <option value="Bob">Bob</option>
   <option value="Charlie">Charlie</option>
   <option value="Diana">Diana</option>
+  <option value="Fra">Fra</option>
 </select>
 
 <button onclick="startGame()">START</button>
@@ -149,7 +150,7 @@ async function startGame(){
       .from("scores")
       .select("*")
       .eq("name", currentPlayerName)
-      .single();
+      .maybeSingle();  // <-- qui il cambio
 
     if(existing){
       alert("Questo nome ha già giocato! Scegli un altro nome.");
@@ -177,21 +178,6 @@ async function startGame(){
   spawnInterval = setInterval(dynamicSpawn, spawnDelay);
 }
 
-
-  score = 0;
-  startTime = performance.now();
-  spawnDelay = 500;
-  targetsPerSpawn = 2;
-  badProbability = 0.5;
-
-  updateInfo();
-
-  nameSelect.disabled = true;
-  document.querySelector("button").disabled = true;
-
-  timerInterval = setInterval(updateInfo, 200);
-  spawnInterval = setInterval(dynamicSpawn, spawnDelay);
-}
 
 function updateInfo(){
   document.getElementById("info").innerText =
