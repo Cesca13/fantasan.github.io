@@ -134,7 +134,7 @@ const badTargets = [
   'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/AM3.png'
 ];
 
-function startGame(){
+async function startGame(){
   const nameSelect = document.getElementById("playerName");
   currentPlayerName = nameSelect.value;
 
@@ -142,6 +142,41 @@ function startGame(){
     alert("Seleziona un nome prima di iniziare!");
     return;
   }
+
+  // --- Controllo se il giocatore ha già giocato ---
+  try {
+    const { data: existing, error } = await supabaseClient
+      .from("scores")
+      .select("*")
+      .eq("name", currentPlayerName)
+      .single();
+
+    if(existing){
+      alert("Questo nome ha già giocato! Scegli un altro nome.");
+      return; // blocca l'inizio del gioco
+    }
+  } catch(err){
+    console.error("Errore nel controllo giocatore:", err);
+    alert("Si è verificato un errore, riprova.");
+    return;
+  }
+
+  // --- Inizio del gioco ---
+  score = 0;
+  startTime = performance.now();
+  spawnDelay = 500;
+  targetsPerSpawn = 2;
+  badProbability = 0.5;
+
+  updateInfo();
+
+  nameSelect.disabled = true;
+  document.querySelector("button").disabled = true;
+
+  timerInterval = setInterval(updateInfo, 200);
+  spawnInterval = setInterval(dynamicSpawn, spawnDelay);
+}
+
 
   score = 0;
   startTime = performance.now();
