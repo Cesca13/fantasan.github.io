@@ -16,13 +16,12 @@ body{
 
 #game{
   position:relative;
-  width:75vw;
-  height:60vh;
+  width:100vw;
+  height:75vh;
   margin-top:10px;
   border:2px solid white;
   background:#6f6d6d;
   overflow:hidden;
-  touch-action: none; /* per drag su mobile */
 }
 
 .player{
@@ -30,8 +29,8 @@ body{
   bottom:80px;
   left:50%;
   transform:translateX(-50%);
-  width:90px;  
-  height:90px; 
+  width:100px;  /* player più grande */
+  height:100px;
   border-radius:10px;
   overflow:hidden;
 }
@@ -45,12 +44,12 @@ body{
 
 .bullet {
   position: absolute;
-  font-size: 36px;   
+  font-size: 36px; /* missile più grande */
   user-select: none;
 }
 
 .enemy {
-  width:80px;  
+  width:80px;  /* nemici più grandi */
   height:80px;
   background-size: contain;
   background-repeat: no-repeat;
@@ -68,25 +67,29 @@ button, select{
   margin:5px;
 }
 
-/* Touch controls */
+/* Touch controls più grandi e reattivi */
 #controls{
   position:fixed;
   bottom:10px;
   width:100%;
   display:flex;
-  justify-content:center;
-  gap:20px;
+  justify-content:space-around; /* distanza maggiore tra pulsanti */
+  padding: 0 20px;
+  gap:30px;
+  z-index:1000;
 }
 
 .control-btn{
-  width:80px;
-  height:80px;
-  font-size:28px;
+  width:100px;   /* pulsanti grandi */
+  height:100px;
+  font-size:36px;
   border-radius:50%;
   background:#333;
   color:white;
   border:none;
-  touch-action: manipulation;
+  touch-action: none;  /* più reattivo ai tocchi multipli */
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 /* Mobile responsive */
@@ -158,7 +161,7 @@ function startGame(){
   game = document.getElementById("game");
   game.innerHTML = "";
 
-  // crea player
+  // crea player con immagine
   player = document.createElement("div");
   player.classList.add("player");
   const img = document.createElement("img");
@@ -166,50 +169,37 @@ function startGame(){
   player.appendChild(img);
   game.appendChild(player);
 
-  // spawn nemici continuo
-  spawnInterval = setInterval(spawnEnemy, 600);
+  // spawn nemici
+  spawnInterval = setInterval(spawnEnemy, 700); // più continui
 
-  // Drag player con un dito
-  game.addEventListener("pointerdown", e=>{
-    const rect = player.getBoundingClientRect();
-    if(e.clientX >= rect.left && e.clientX <= rect.right &&
-       e.clientY >= rect.top && e.clientY <= rect.bottom){
-         playerDragging = true;
-       }
-  });
-  game.addEventListener("pointermove", e=>{
-    if(playerDragging){
-      const rect = game.getBoundingClientRect();
-      let newX = e.clientX - rect.left - player.offsetWidth/2;
-      newX = Math.max(0, Math.min(game.clientWidth - player.offsetWidth, newX));
-      player.style.left = newX + "px";
-    }
-  });
-  game.addEventListener("pointerup", ()=>playerDragging=false);
-  game.addEventListener("pointerleave", ()=>playerDragging=false);
+  // movimento player
+  requestAnimationFrame(gameLoop);
 
-  // Controlli frecce e fuoco simultanei
+  // controlli touch
   document.getElementById("left-btn").addEventListener("pointerdown", ()=>moveLeft=true);
   document.getElementById("left-btn").addEventListener("pointerup", ()=>moveLeft=false);
   document.getElementById("right-btn").addEventListener("pointerdown", ()=>moveRight=true);
   document.getElementById("right-btn").addEventListener("pointerup", ()=>moveRight=false);
   document.getElementById("fire-btn").addEventListener("pointerdown", fireBullet);
-
-  requestAnimationFrame(gameLoop);
 }
 
 function updateInfo(){
   document.getElementById("info").innerText = `Punteggio: ${score} | Obiettivo: ${TARGET_SCORE}`;
 }
 
-// spawn nemici
+// Nemici cadono in posizioni casuali
 function spawnEnemy(){
   const enemy = document.createElement("div");
   enemy.classList.add("enemy");
+
+  // immagine casuale
   const sprite = enemySprites[Math.floor(Math.random() * enemySprites.length)];
   enemy.style.backgroundImage = `url('${sprite}')`;
+
+  // posizione casuale X, in alto fuori schermo
   enemy.style.left = Math.random() * (game.clientWidth - 80) + "px";
   enemy.style.top = "-80px";
+
   game.appendChild(enemy);
   enemies.push(enemy);
 }
@@ -218,61 +208,71 @@ function fireBullet(){
   const bullet = document.createElement("div");
   bullet.classList.add("bullet");
   bullet.innerText = "🚀";
-  const playerLeft = parseFloat(player.style.left) || (game.clientWidth/2 - 45);
+
+  const playerLeft = parseFloat(player.style.left) || (game.clientWidth/2 - 50);
   bullet.style.left = playerLeft + player.offsetWidth/2 - 18 + "px";
+
   const playerTop = game.clientHeight - 80 - player.offsetHeight;
   bullet.style.top = playerTop + "px";
+
   game.appendChild(bullet);
   bullets.push(bullet);
 }
 
 function gameLoop(){
-  const step = 10;
-  let left = parseFloat(player.style.left) || (game.clientWidth/2 - 45);
+  const step = 10; // player più veloce
+  let left = parseFloat(player.style.left) || (game.clientWidth/2 - 50);
   if(moveLeft) left -= step;
   if(moveRight) left += step;
   left = Math.max(0, Math.min(game.clientWidth - player.offsetWidth, left));
   player.style.left = left + "px";
 
-  // nemici
-  enemies.forEach((enemy,i)=>{
+  // Nemici
+  enemies.forEach((enemy, i) => {
     let top = parseFloat(enemy.style.top);
-    enemy.style.top = top + 5 + "px";
+    enemy.style.top = top + 5 + "px"; // più veloci
 
-    // collisione con player
+    // Collisione con il player
     const eRect = enemy.getBoundingClientRect();
     const pRect = player.getBoundingClientRect();
     if(!(eRect.right < pRect.left || eRect.left > pRect.right || eRect.bottom < pRect.top || eRect.top > pRect.bottom)){
-      score -= 15;
-      updateInfo();
-      enemy.remove();
-      enemies.splice(i,1);
+        score -= 15; // malus se nemico tocca player
+        updateInfo();
+        enemy.remove();
+        enemies.splice(i, 1);
     }
   });
 
-  // proiettili
-  bullets.forEach((bullet,i)=>{
+  // Proiettili
+  bullets.forEach((bullet, i) => {
     let top = parseFloat(bullet.style.top);
     bullet.style.top = top - 15 + "px";
 
-    enemies.forEach((enemy,j)=>{
+    // Collisione con nemici
+    enemies.forEach((enemy, j) => {
       const eRect = enemy.getBoundingClientRect();
       const bRect = bullet.getBoundingClientRect();
       if(!(bRect.right < eRect.left || bRect.left > eRect.right || bRect.bottom < eRect.top || bRect.top > eRect.bottom)){
-        score += 10; // ora +10
-        updateInfo();
-        enemy.remove();
-        bullet.remove();
-        enemies.splice(j,1);
-        bullets.splice(i,1);
+          score += 10; // punti per missile
+          updateInfo();
+          enemy.remove();
+          bullet.remove();
+          enemies.splice(j, 1);
+          bullets.splice(i, 1);
       }
     });
 
     if(top < -20){
       bullet.remove();
-      bullets.splice(i,1);
+      bullets.splice(i, 1);
     }
   });
+
+  // Aumenta difficoltà oltre 70 punti
+  if(score >= 70){
+    clearInterval(spawnInterval);
+    spawnInterval = setInterval(spawnEnemy, 400);
+  }
 
   if(score >= TARGET_SCORE){
     endGame();
