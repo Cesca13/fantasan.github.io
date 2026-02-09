@@ -26,11 +26,11 @@ body{
 
 .player{
   position:absolute;
-  bottom:80px;
+  bottom:100px;
   left:50%;
   transform:translateX(-50%);
-  width:100px;  /* player più grande */
-  height:100px;
+  width:90px;
+  height:90px;
   border-radius:10px;
   overflow:hidden;
 }
@@ -44,13 +44,14 @@ body{
 
 .bullet {
   position: absolute;
-  font-size: 36px; /* missile più grande */
+  font-size: 36px;
   user-select: none;
 }
 
 .enemy {
-  width:80px;  /* nemici più grandi */
-  height:80px;
+  width:70px;
+  height:70px;
+  background-image: url('https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif'); 
   background-size: contain;
   background-repeat: no-repeat;
   position:absolute;
@@ -67,29 +68,29 @@ button, select{
   margin:5px;
 }
 
-/* Touch controls più grandi e reattivi */
+/* Touch controls */
 #controls{
   position:fixed;
   bottom:10px;
   width:100%;
   display:flex;
-  justify-content:space-around; /* distanza maggiore tra pulsanti */
-  padding: 0 20px;
+  justify-content:center;
   gap:30px;
-  z-index:1000;
 }
 
 .control-btn{
-  width:100px;   /* pulsanti grandi */
-  height:100px;
-  font-size:36px;
+  width:120px;
+  height:120px;
+  font-size:40px;
   border-radius:50%;
   background:#333;
   color:white;
   border:none;
-  touch-action: none;  /* più reattivo ai tocchi multipli */
+  user-select: none;             /* niente selezione testo */
+  -webkit-user-select: none;     
+  -moz-user-select: none;        
+  touch-action: manipulation;    
   -webkit-tap-highlight-color: transparent;
-  user-select: none;
 }
 
 /* Mobile responsive */
@@ -139,13 +140,6 @@ const TARGET_SCORE = 100;
 let player, game;
 let moveLeft = false, moveRight = false;
 
-// Array immagini nemici
-const enemySprites = [
-  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif',
-  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/alien1.png',
-  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/alien2.png'
-];
-
 function startGame(){
   const nameSelect = document.getElementById("playerName");
   currentPlayerName = nameSelect.value;
@@ -170,7 +164,7 @@ function startGame(){
   game.appendChild(player);
 
   // spawn nemici
-  spawnInterval = setInterval(spawnEnemy, 700); // più continui
+  spawnInterval = setInterval(spawnEnemy, 600);
 
   // movimento player
   requestAnimationFrame(gameLoop);
@@ -187,19 +181,11 @@ function updateInfo(){
   document.getElementById("info").innerText = `Punteggio: ${score} | Obiettivo: ${TARGET_SCORE}`;
 }
 
-// Nemici cadono in posizioni casuali
 function spawnEnemy(){
   const enemy = document.createElement("div");
   enemy.classList.add("enemy");
-
-  // immagine casuale
-  const sprite = enemySprites[Math.floor(Math.random() * enemySprites.length)];
-  enemy.style.backgroundImage = `url('${sprite}')`;
-
-  // posizione casuale X, in alto fuori schermo
-  enemy.style.left = Math.random() * (game.clientWidth - 80) + "px";
-  enemy.style.top = "-80px";
-
+  enemy.style.left = Math.random() * (game.clientWidth - 70) + "px";
+  enemy.style.top = "-70px";
   game.appendChild(enemy);
   enemies.push(enemy);
 }
@@ -209,10 +195,9 @@ function fireBullet(){
   bullet.classList.add("bullet");
   bullet.innerText = "🚀";
 
-  const playerLeft = parseFloat(player.style.left) || (game.clientWidth/2 - 50);
+  const playerLeft = parseFloat(player.style.left) || (game.clientWidth/2 - 45);
   bullet.style.left = playerLeft + player.offsetWidth/2 - 18 + "px";
-
-  const playerTop = game.clientHeight - 80 - player.offsetHeight;
+  const playerTop = game.clientHeight - 100 - player.offsetHeight;
   bullet.style.top = playerTop + "px";
 
   game.appendChild(bullet);
@@ -220,8 +205,8 @@ function fireBullet(){
 }
 
 function gameLoop(){
-  const step = 10; // player più veloce
-  let left = parseFloat(player.style.left) || (game.clientWidth/2 - 50);
+  const step = 10;
+  let left = parseFloat(player.style.left) || (game.clientWidth/2 - 45);
   if(moveLeft) left -= step;
   if(moveRight) left += step;
   left = Math.max(0, Math.min(game.clientWidth - player.offsetWidth, left));
@@ -230,13 +215,12 @@ function gameLoop(){
   // Nemici
   enemies.forEach((enemy, i) => {
     let top = parseFloat(enemy.style.top);
-    enemy.style.top = top + 5 + "px"; // più veloci
+    enemy.style.top = top + 5 + "px";
 
-    // Collisione con il player
     const eRect = enemy.getBoundingClientRect();
     const pRect = player.getBoundingClientRect();
     if(!(eRect.right < pRect.left || eRect.left > pRect.right || eRect.bottom < pRect.top || eRect.top > pRect.bottom)){
-        score -= 15; // malus se nemico tocca player
+        score -= 15;
         updateInfo();
         enemy.remove();
         enemies.splice(i, 1);
@@ -246,14 +230,13 @@ function gameLoop(){
   // Proiettili
   bullets.forEach((bullet, i) => {
     let top = parseFloat(bullet.style.top);
-    bullet.style.top = top - 15 + "px";
+    bullet.style.top = top - 12 + "px";
 
-    // Collisione con nemici
     enemies.forEach((enemy, j) => {
       const eRect = enemy.getBoundingClientRect();
       const bRect = bullet.getBoundingClientRect();
       if(!(bRect.right < eRect.left || bRect.left > eRect.right || bRect.bottom < eRect.top || bRect.top > eRect.bottom)){
-          score += 10; // punti per missile
+          score += 10;
           updateInfo();
           enemy.remove();
           bullet.remove();
@@ -262,14 +245,14 @@ function gameLoop(){
       }
     });
 
-    if(top < -20){
+    if(top < -40){
       bullet.remove();
       bullets.splice(i, 1);
     }
   });
 
-  // Aumenta difficoltà oltre 70 punti
-  if(score >= 70){
+  // Aumenta frequenza se score >= 70
+  if(score >= 70 && spawnInterval._idleTimeout !== 400){
     clearInterval(spawnInterval);
     spawnInterval = setInterval(spawnEnemy, 400);
   }
