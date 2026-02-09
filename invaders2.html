@@ -30,8 +30,8 @@ body{
   bottom:80px;
   left:50%;
   transform:translateX(-50%);
-  width:90px;  /* più grande */
-  height:90px; /* più grande */
+  width:90px;  
+  height:90px; 
   border-radius:10px;
   overflow:hidden;
 }
@@ -45,12 +45,12 @@ body{
 
 .bullet {
   position: absolute;
-  font-size: 36px;   /* missile più grande */
+  font-size: 36px;   
   user-select: none;
 }
 
 .enemy {
-  width:80px;  /* nemici più grandi */
+  width:80px;  
   height:80px;
   background-size: contain;
   background-repeat: no-repeat;
@@ -114,7 +114,9 @@ button, select{
 <div id="game"></div>
 
 <div id="controls">
+  <button class="control-btn" id="left-btn">⬅️</button>
   <button class="control-btn" id="fire-btn">🔥</button>
+  <button class="control-btn" id="right-btn">➡️</button>
 </div>
 
 <script>
@@ -132,9 +134,9 @@ let currentPlayerName = "";
 const TARGET_SCORE = 100;
 
 let player, game;
-let playerDragging = false;
+let moveLeft = false, moveRight = false;
 
-// Nemici casuali
+// Array immagini nemici
 const enemySprites = [
   'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif',
   'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/alien1.png',
@@ -167,7 +169,7 @@ function startGame(){
   // spawn nemici continuo
   spawnInterval = setInterval(spawnEnemy, 600);
 
-  // drag del player
+  // Drag player con un dito
   game.addEventListener("pointerdown", e=>{
     const rect = player.getBoundingClientRect();
     if(e.clientX >= rect.left && e.clientX <= rect.right &&
@@ -175,7 +177,6 @@ function startGame(){
          playerDragging = true;
        }
   });
-
   game.addEventListener("pointermove", e=>{
     if(playerDragging){
       const rect = game.getBoundingClientRect();
@@ -184,14 +185,16 @@ function startGame(){
       player.style.left = newX + "px";
     }
   });
-
   game.addEventListener("pointerup", ()=>playerDragging=false);
   game.addEventListener("pointerleave", ()=>playerDragging=false);
 
-  // pulsante fuoco
+  // Controlli frecce e fuoco simultanei
+  document.getElementById("left-btn").addEventListener("pointerdown", ()=>moveLeft=true);
+  document.getElementById("left-btn").addEventListener("pointerup", ()=>moveLeft=false);
+  document.getElementById("right-btn").addEventListener("pointerdown", ()=>moveRight=true);
+  document.getElementById("right-btn").addEventListener("pointerup", ()=>moveRight=false);
   document.getElementById("fire-btn").addEventListener("pointerdown", fireBullet);
 
-  // loop di gioco
   requestAnimationFrame(gameLoop);
 }
 
@@ -209,13 +212,6 @@ function spawnEnemy(){
   enemy.style.top = "-80px";
   game.appendChild(enemy);
   enemies.push(enemy);
-
-  // aumenta difficoltà oltre 70 punti
-  if(score >= 70){
-    enemy.style.top = "-40px";
-    enemy.style.height = "100px";
-    enemy.style.width = "100px";
-  }
 }
 
 function fireBullet(){
@@ -233,6 +229,9 @@ function fireBullet(){
 function gameLoop(){
   const step = 10;
   let left = parseFloat(player.style.left) || (game.clientWidth/2 - 45);
+  if(moveLeft) left -= step;
+  if(moveRight) left += step;
+  left = Math.max(0, Math.min(game.clientWidth - player.offsetWidth, left));
   player.style.left = left + "px";
 
   // nemici
@@ -260,7 +259,7 @@ function gameLoop(){
       const eRect = enemy.getBoundingClientRect();
       const bRect = bullet.getBoundingClientRect();
       if(!(bRect.right < eRect.left || bRect.left > eRect.right || bRect.bottom < eRect.top || bRect.top > eRect.bottom)){
-        score += 5;
+        score += 10; // ora +10
         updateInfo();
         enemy.remove();
         bullet.remove();
