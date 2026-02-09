@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Mini Chicken Invaders Mobile</title>
+<title>Mini Chicken Invaders Frenzy</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{
@@ -12,7 +12,7 @@ body{
   font-family:Arial;
   text-align:center;
   overflow:hidden;
-  user-select: none; /* disabilita selezione del testo */
+  user-select:none;
 }
 
 #game{
@@ -43,18 +43,17 @@ body{
   border-radius:10px;
 }
 
-.bullet {
-  position: absolute;
-  font-size: 36px;
-  user-select: none;
+.bullet{
+  position:absolute;
+  font-size:36px;
+  user-select:none;
 }
 
-.enemy {
+.enemy{
   width:80px;
   height:80px;
-  background-image: url('https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif');
-  background-size: contain;
-  background-repeat: no-repeat;
+  background-size:contain;
+  background-repeat:no-repeat;
   position:absolute;
 }
 
@@ -87,11 +86,10 @@ button, select{
   background:#333;
   color:white;
   border:none;
-  touch-action: none; /* importante per multi-touch */
+  touch-action:none;
 }
 
-/* Mobile responsive */
-@media (max-width:600px){
+@media(max-width:600px){
   #info{ font-size:24px; }
   select, button{ font-size:20px; padding:15px 35px; min-width:180px; height:50px; }
   .control-btn{ width:90px; height:90px; font-size:32px; }
@@ -100,7 +98,7 @@ button, select{
 </head>
 <body>
 
-<h1>🚀 Mini Chicken Invaders</h1>
+<h1>🚀 Mini Chicken Invaders Frenzy</h1>
 
 <select id="playerName">
   <option value="">Scegli il tuo nome</option>
@@ -130,17 +128,22 @@ const supabaseClient = supabase.createClient(
 let score = 0;
 let startTime;
 let spawnInterval;
-let spawnDelay = 600;
 let bullets = [];
 let enemies = [];
 let currentPlayerName = "";
+let enemySpeed = 4;
+let enemySpawnRate = 800; // intervallo iniziale spawn
 const TARGET_SCORE = 100;
 
 let player, game;
-let moveLeft = false, moveRight = false;
+let moveLeft=false, moveRight=false;
 
-// Nemico unico
-let enemy;
+// immagini nemici
+const enemySprites = [
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif',
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/alien1.png',
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/alien2.png'
+];
 
 function startGame(){
   const nameSelect = document.getElementById("playerName");
@@ -148,7 +151,10 @@ function startGame(){
   if(!currentPlayerName){ alert("Seleziona un nome!"); return; }
 
   score = 0;
-  spawnDelay = 600;
+  bullets = [];
+  enemies = [];
+  enemySpeed = 4;
+  enemySpawnRate = 800;
   updateInfo();
   startTime = performance.now();
 
@@ -156,9 +162,9 @@ function startGame(){
   document.querySelector("button").disabled = true;
 
   game = document.getElementById("game");
-  game.innerHTML = "";
+  game.innerHTML="";
 
-  // crea player
+  // player
   player = document.createElement("div");
   player.classList.add("player");
   const img = document.createElement("img");
@@ -166,14 +172,10 @@ function startGame(){
   player.appendChild(img);
   game.appendChild(player);
 
-  // spawn nemico
-  spawnEnemy();
-  spawnInterval = setInterval(spawnEnemy, spawnDelay);
+  spawnInterval = setInterval(spawnEnemy, enemySpawnRate);
 
-  // movimento player
   requestAnimationFrame(gameLoop);
 
-  // multi-touch controlli
   document.getElementById("left-btn").addEventListener("pointerdown", ()=>moveLeft=true);
   document.getElementById("left-btn").addEventListener("pointerup", ()=>moveLeft=false);
   document.getElementById("right-btn").addEventListener("pointerdown", ()=>moveRight=true);
@@ -185,14 +187,12 @@ function updateInfo(){
   document.getElementById("info").innerText = `Punteggio: ${score} | Obiettivo: ${TARGET_SCORE}`;
 }
 
-// spawn nemico unico
 function spawnEnemy(){
-  if(enemy) return; // esiste già
-
-  enemy = document.createElement("div");
+  const enemy = document.createElement("div");
   enemy.classList.add("enemy");
   enemy.style.left = Math.random() * (game.clientWidth - 80) + "px";
   enemy.style.top = "-80px";
+  enemy.style.backgroundImage = `url('${enemySprites[Math.floor(Math.random()*enemySprites.length)]}')`;
   game.appendChild(enemy);
   enemies.push(enemy);
 }
@@ -200,66 +200,57 @@ function spawnEnemy(){
 function fireBullet(){
   const bullet = document.createElement("div");
   bullet.classList.add("bullet");
-  bullet.innerText = "🚀";
-
-  const playerLeft = parseFloat(player.style.left) || (game.clientWidth/2 - 50);
+  bullet.innerText="🚀";
+  const playerLeft = parseFloat(player.style.left)||(game.clientWidth/2 -50);
   bullet.style.left = playerLeft + player.offsetWidth/2 - 18 + "px";
-
-  const playerTop = game.clientHeight - 100 - player.offsetHeight;
-  bullet.style.top = playerTop + "px";
-
+  bullet.style.top = game.clientHeight - 100 - player.offsetHeight + "px";
   game.appendChild(bullet);
   bullets.push(bullet);
 }
 
 function gameLoop(){
-  const step = 10;
-  let left = parseFloat(player.style.left) || (game.clientWidth/2 - 50);
-  if(moveLeft) left -= step;
-  if(moveRight) left += step;
-  left = Math.max(0, Math.min(game.clientWidth - player.offsetWidth, left));
-  player.style.left = left + "px";
+  const step=10;
+  let left=parseFloat(player.style.left)||(game.clientWidth/2 -50);
+  if(moveLeft) left-=step;
+  if(moveRight) left+=step;
+  left=Math.max(0, Math.min(game.clientWidth - player.offsetWidth,left));
+  player.style.left=left+"px";
 
-  // nemico
+  // nemici
   enemies.forEach((e,i)=>{
-    let top = parseFloat(e.style.top);
-    e.style.top = top + 5 + "px";
+    let top=parseFloat(e.style.top);
+    e.style.top = top + enemySpeed + "px";
 
-    // collisione con player
-    const eRect = e.getBoundingClientRect();
-    const pRect = player.getBoundingClientRect();
+    const eRect=e.getBoundingClientRect();
+    const pRect=player.getBoundingClientRect();
     if(!(eRect.right < pRect.left || eRect.left > pRect.right || eRect.bottom < pRect.top || eRect.top > pRect.bottom)){
-      score -= 15;
+      score-=15;
       updateInfo();
       e.remove();
       enemies.splice(i,1);
-      enemy = null;
     }
 
     if(top > game.clientHeight){
       e.remove();
       enemies.splice(i,1);
-      enemy = null;
     }
   });
 
   // proiettili
   bullets.forEach((b,i)=>{
-    let top = parseFloat(b.style.top);
-    b.style.top = top - 12 + "px";
+    let top=parseFloat(b.style.top);
+    b.style.top = top -12 +"px";
 
-    // collisione con nemico
     enemies.forEach((e,j)=>{
-      const eRect = e.getBoundingClientRect();
-      const bRect = b.getBoundingClientRect();
+      const eRect=e.getBoundingClientRect();
+      const bRect=b.getBoundingClientRect();
       if(!(bRect.right < eRect.left || bRect.left > eRect.right || bRect.bottom < eRect.top || bRect.top > eRect.bottom)){
-        score += 10;
+        score+=10;
         updateInfo();
         e.remove();
         b.remove();
         enemies.splice(j,1);
         bullets.splice(i,1);
-        enemy = null;
       }
     });
 
@@ -269,11 +260,11 @@ function gameLoop(){
     }
   });
 
-  // aumenta frequenza nemico oltre 70 punti
-  if(score >= 70 && spawnDelay !== 400){
-    spawnDelay = 400;
+  // aumenta difficoltà oltre 70 punti
+  if(score >=70){
+    enemySpeed=7;
     clearInterval(spawnInterval);
-    spawnInterval = setInterval(spawnEnemy, spawnDelay);
+    spawnInterval=setInterval(spawnEnemy, 400);
   }
 
   if(score >= TARGET_SCORE){
@@ -286,7 +277,7 @@ function gameLoop(){
 
 async function endGame(){
   clearInterval(spawnInterval);
-  const timeElapsed = (performance.now() - startTime)/1000;
+  const timeElapsed=(performance.now()-startTime)/1000;
 
   await supabaseClient.from("invaders").insert({
     name: currentPlayerName,
@@ -295,14 +286,13 @@ async function endGame(){
 
   alert(`Fine! Hai impiegato ${timeElapsed.toFixed(2)} secondi 🫶🏻`);
 
-  const nameSelect = document.getElementById("playerName");
-  nameSelect.disabled = false;
-  document.querySelector("button").disabled = false;
+  const nameSelect=document.getElementById("playerName");
+  nameSelect.disabled=false;
+  document.querySelector("button").disabled=false;
 
-  game.innerHTML = "";
-  bullets = [];
-  enemies = [];
-  enemy = null;
+  game.innerHTML="";
+  bullets=[];
+  enemies=[];
   updateInfo();
 }
 </script>
