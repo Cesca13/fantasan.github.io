@@ -22,6 +22,7 @@ body{
   border:2px solid white;
   background:#6f6d6d;
   overflow:hidden;
+  touch-action: none;
 }
 
 .player{
@@ -29,8 +30,8 @@ body{
   bottom:80px;
   left:50%;
   transform:translateX(-50%);
-  width:60px;
-  height:60px;
+  width:80px;   /* più grande */
+  height:80px;  /* più grande */
   border-radius:10px;
   overflow:hidden;
 }
@@ -44,13 +45,13 @@ body{
 
 .bullet {
   position: absolute;
-  font-size: 28px;
+  font-size: 36px;   /* più grande */
   user-select: none;
 }
 
 .enemy {
-  width:50px;
-  height:50px;
+  width:70px;   /* più grande */
+  height:70px;  /* più grande */
   background-size: contain;
   background-repeat: no-repeat;
   position:absolute;
@@ -67,14 +68,12 @@ button, select{
   margin:5px;
 }
 
-/* Touch controls */
 #controls{
   position:fixed;
   bottom:10px;
   width:100%;
   display:flex;
   justify-content:center;
-  gap:20px;
 }
 
 .control-btn{
@@ -88,7 +87,6 @@ button, select{
   touch-action: manipulation;
 }
 
-/* Mobile responsive */
 @media (max-width:600px){
   #info{ font-size:24px; }
   select, button{ font-size:20px; padding:15px 35px; min-width:180px; height:50px; }
@@ -113,9 +111,7 @@ button, select{
 <div id="game"></div>
 
 <div id="controls">
-  <button class="control-btn" id="left-btn">⬅️</button>
   <button class="control-btn" id="fire-btn">🔥</button>
-  <button class="control-btn" id="right-btn">➡️</button>
 </div>
 
 <script>
@@ -133,14 +129,14 @@ let currentPlayerName = "";
 const TARGET_SCORE = 100;
 
 let player, game;
-let moveLeft = false, moveRight = false;
+let playerDragging = false;
 
-// Array immagini nemici
 const enemySprites = [
-  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif'
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif',
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/alien1.png',
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/alien2.png'
 ];
 
-// Parametri dinamici
 let spawnDelay = 800;
 let enemySpeed = 4;
 let enemiesPerSpawn = 1;
@@ -160,7 +156,6 @@ function startGame(){
   game = document.getElementById("game");
   game.innerHTML = "";
 
-  // crea player
   player = document.createElement("div");
   player.classList.add("player");
   const img = document.createElement("img");
@@ -169,14 +164,23 @@ function startGame(){
   game.appendChild(player);
 
   spawnInterval = setInterval(dynamicSpawn, spawnDelay);
-
   requestAnimationFrame(gameLoop);
 
-  // controlli touch
-  document.getElementById("left-btn").addEventListener("pointerdown", ()=>moveLeft=true);
-  document.getElementById("left-btn").addEventListener("pointerup", ()=>moveLeft=false);
-  document.getElementById("right-btn").addEventListener("pointerdown", ()=>moveRight=true);
-  document.getElementById("right-btn").addEventListener("pointerup", ()=>moveRight=false);
+  // Drag del player
+  game.addEventListener("pointerdown", e => {
+    if(e.target === player) playerDragging = true;
+  });
+  game.addEventListener("pointermove", e => {
+    if(playerDragging){
+      let rect = game.getBoundingClientRect();
+      let newX = e.clientX - rect.left - player.offsetWidth/2;
+      newX = Math.max(0, Math.min(game.clientWidth - player.offsetWidth, newX));
+      player.style.left = newX + "px";
+    }
+  });
+  game.addEventListener("pointerup", ()=>playerDragging=false);
+  game.addEventListener("pointerleave", ()=>playerDragging=false);
+
   document.getElementById("fire-btn").addEventListener("pointerdown", fireBullet);
 }
 
@@ -184,49 +188,37 @@ function updateInfo(){
   document.getElementById("info").innerText = `Punteggio: ${score} | Obiettivo: ${TARGET_SCORE}`;
 }
 
-// Spawn dinamico con aumento difficoltà
 function dynamicSpawn(){
-  for(let i=0; i<enemiesPerSpawn; i++){
-    spawnEnemy();
-  }
+  for(let i=0; i<enemiesPerSpawn; i++) spawnEnemy();
 
-  // aumenta difficoltà in base al punteggio
   if(score >= 70 && score < 90){
-    spawnDelay = 500;
-    enemySpeed = 6;
-    enemiesPerSpawn = 2;
+    spawnDelay = 500; enemySpeed = 6; enemiesPerSpawn = 2;
   } else if(score >= 90){
-    spawnDelay = 300;
-    enemySpeed = 8;
-    enemiesPerSpawn = 3;
+    spawnDelay = 300; enemySpeed = 8; enemiesPerSpawn = 3;
   }
 
   clearInterval(spawnInterval);
   spawnInterval = setInterval(dynamicSpawn, spawnDelay);
 }
 
-// Nemico casuale
 function spawnEnemy(){
   const enemy = document.createElement("div");
   enemy.classList.add("enemy");
-
   const sprite = enemySprites[Math.floor(Math.random() * enemySprites.length)];
   enemy.style.backgroundImage = `url('${sprite}')`;
-  enemy.style.left = Math.random() * (game.clientWidth - 50) + "px";
-  enemy.style.top = "-50px";
-
+  enemy.style.left = Math.random() * (game.clientWidth - 70) + "px";
+  enemy.style.top = "-70px";
   game.appendChild(enemy);
   enemies.push(enemy);
 }
 
-// Sparo
 function fireBullet(){
   const bullet = document.createElement("div");
   bullet.classList.add("bullet");
   bullet.innerText = "🚀";
 
-  const playerLeft = parseFloat(player.style.left) || (game.clientWidth/2 - 30);
-  bullet.style.left = playerLeft + player.offsetWidth/2 - 14 + "px";
+  const playerLeft = parseFloat(player.style.left) || (game.clientWidth/2 - 40);
+  bullet.style.left = playerLeft + player.offsetWidth/2 - 18 + "px";
 
   const playerTop = game.clientHeight - 80 - player.offsetHeight;
   bullet.style.top = playerTop + "px";
@@ -236,19 +228,10 @@ function fireBullet(){
 }
 
 function gameLoop(){
-  const step = 7;
-  let left = parseFloat(player.style.left) || (game.clientWidth/2 - 30);
-  if(moveLeft) left -= step;
-  if(moveRight) left += step;
-  left = Math.max(0, Math.min(game.clientWidth - player.offsetWidth, left));
-  player.style.left = left + "px";
-
-  // Nemici
   enemies.forEach((enemy, i) => {
     let top = parseFloat(enemy.style.top);
     enemy.style.top = top + enemySpeed + "px";
 
-    // Collisione player
     const eRect = enemy.getBoundingClientRect();
     const pRect = player.getBoundingClientRect();
     if(!(eRect.right < pRect.left || eRect.left > pRect.right || eRect.bottom < pRect.top || eRect.top > pRect.bottom)){
@@ -259,10 +242,9 @@ function gameLoop(){
     }
   });
 
-  // Proiettili
   bullets.forEach((bullet, i) => {
     let top = parseFloat(bullet.style.top);
-    bullet.style.top = top - 10 + "px";
+    bullet.style.top = top - 12 + "px";
 
     enemies.forEach((enemy, j) => {
       const eRect = enemy.getBoundingClientRect();
