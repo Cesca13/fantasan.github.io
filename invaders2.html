@@ -171,7 +171,7 @@ async function loadPlayerNames(){
   players.forEach(p=>{
     const option = document.createElement('option');
     option.value = p.id;
-    option.textContent = p.name;
+    option.textContent = p.player;
     select.appendChild(option);
   });
 }
