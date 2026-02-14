@@ -244,8 +244,8 @@ async function endGame(){
 
   const duration = (performance.now() - startTime) / 1000;
 
-  // Salva punteggio nella tabella scores con il nome reale
-  await supabaseClient.from("scores").insert({
+  // Salva punteggio nella tabella conticlick con il nome reale
+  await supabaseClient.from("conticlick").insert({
     name: currentPlayerName,
     score: score,
     duration: duration
