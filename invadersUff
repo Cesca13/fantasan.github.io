@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Morgan Invaders</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body{
+  margin:0;
+  background:#000;
+  color:white;
+  font-family:Arial;
+  text-align:center;
+  overflow:hidden;
+}
+
+#game{
+  position:relative;
+  width:100vw;
+  height:60vh;
+  margin-top:10px;
+  border:2px solid white;
+  overflow:hidden;
+  background-image: url('https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/invaders_sfondo.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.player{
+  position:absolute;
+  bottom:80px;
+  left:50%;
+  transform:translateX(-50%);
+  width:80px;
+  height:80px;
+  border-radius:10px;
+  overflow:hidden;
+}
+
+.player img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  border-radius:10px;
+}
+
+.bullet { position: absolute; font-size: 32px; user-select: none; }
+.enemy {
+  width:70px;
+  height:70px;
+  background-image: url('https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif');
+  background-size: contain;
+  background-repeat: no-repeat;
+  position:absolute;
+}
+
+#info{ margin-top:10px; font-size:22px; }
+button, select{ padding:10px 25px; font-size:18px; margin:5px; }
+
+#controls{
+  position:fixed;
+  bottom:20px;
+  left:0;
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:0 25px;
+  box-sizing:border-box;
+  pointer-events:none;
+}
+
+.control-btn{
+  width:130px; height:130px; font-size:48px;
+  border-radius:50%;
+  background:#222; color:white; border:3px solid white;
+  touch-action:none; user-select:none; pointer-events:auto;
+}
+
+#fire-btn{
+  position:absolute;
+  left:50%; transform:translateX(-50%); bottom:0;
+}
+
+@media (max-width:600px){
+  #info{ font-size:24px; }
+  select, button{ font-size:20px; padding:15px 35px; min-width:180px; height:50px; }
+}
+</style>
+</head>
+<body>
+
+<h1>🚀 Morgan Invaders 🚀</h1>
+
+<select id="playerName">
+  <option value="">Caricamento...</option>
+</select>
+
+<button id="startBtn">START</button>
+
+<div id="info">Punteggio: 0</div>
+<div id="game"></div>
+
+<div id="controls">
+  <button class="control-btn" id="left-btn">⬅️</button>
+  <button class="control-btn" id="fire-btn">🔥</button>
+  <button class="control-btn" id="right-btn">➡️</button>
+</div>
+
+<script>
+const supabaseClient = supabase.createClient(
+  "https://xloiaewcuwelufblecxf.supabase.co",
+  "sb_publishable_SlM0ePMXPgoJjC47P8o-IQ_w6iEn_OP"
+);
+
+let score = 0;
+let startTime;
+let spawnInterval;
+let bullets = [];
+let enemies = [];
+let currentPlayerName = "";
+const TARGET_SCORE = 100;
+
+let player, game;
+let moveLeft=false, moveRight=false;
+let frenzyMode=false;
+let enemySpeed=4;
+
+// carica nomi dal file players.json
+let availableNames = [];
+const playerSelect = document.getElementById("playerName");
+fetch("players.json")
+  .then(res=>res.json())
+  .then(data=>{
+    availableNames = data;
+    playerSelect.innerHTML = '<option value="">Scegli il tuo nome</option>';
+    data.forEach(n=>{
+      const opt = document.createElement("option");
+      opt.value = n; opt.textContent = n;
+      playerSelect.appendChild(opt);
+    });
+  });
+
+// Array immagini nemici
+const enemySprites = [
+  'https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif'
+];
+
+// START GAME
+document.getElementById("startBtn").addEventListener("click", startGame);
+
+function startGame(){
+  currentPlayerName = playerSelect.value;
+  if(!currentPlayerName){ alert("Seleziona un nome!"); return; }
+
+  score = 0;
+  updateInfo();
+  startTime = performance.now();
+  frenzyMode=false;
+  enemySpeed=4;
+
+  playerSelect.disabled = true;
+  document.getElementById("startBtn").disabled = true;
+
+  game = document.getElementById("game");
+  game.innerHTML="";
+
+  player = document.createElement("div");
+  player.classList.add("player");
+  const img = document.createElement("img");
+  img.src = "https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/bugos.gif";
+  player.appendChild(img);
+  game.appendChild(player);
+
+  spawnInterval = setInterval(spawnEnemy,800);
+  requestAnimationFrame(gameLoop);
+
+  const leftBtn = document.getElementById("left-btn");
+  const rightBtn = document.getElementById("right-btn");
+  const fireBtn = document.getElementById("fire-btn");
+
+  leftBtn.addEventListener("pointerdown", ()=>moveLeft=true);
+  leftBtn.addEventListener("pointerup", ()=>moveLeft=false);
+  rightBtn.addEventListener("pointerdown", ()=>moveRight=true);
+  rightBtn.addEventListener("pointerup", ()=>moveRight=false);
+  fireBtn.addEventListener("pointerdown", fireBullet);
+
+  game.addEventListener("pointerdown", startDrag);
+  game.addEventListener("pointermove", dragPlayer);
+  game.addEventListener("pointerup", endDrag);
+}
+
+// FUNZIONI GIOCO
+function updateInfo(){
+  playerSelect.innerHTML = playerSelect.innerHTML; // forza refresh
+  document.getElementById("info").innerText = `Punteggio: ${score} | Obiettivo: ${TARGET_SCORE}`;
+}
+
+function spawnEnemy(){
+  const enemy = document.createElement("div");
+  enemy.classList.add("enemy");
+  enemy.style.backgroundImage = `url('${enemySprites[0]}')`;
+  enemy.style.left = Math.random()*(game.clientWidth-70)+"px";
+  enemy.style.top = "-70px";
+  game.appendChild(enemy);
+  enemies.push(enemy);
+}
+
+function fireBullet(){
+  const bullet = document.createElement("div");
+  bullet.classList.add("bullet");
+  bullet.innerText="🚀";
+
+  const playerLeft = parseFloat(player.style.left) || (game.clientWidth/2 - 40);
+  bullet.style.left = playerLeft + player.offsetWidth/2 - 16 + "px";
+  bullet.style.top = game.clientHeight - 80 - player.offsetHeight + "px";
+
+  game.appendChild(bullet);
+  bullets.push(bullet);
+}
+
+// DRAG PLAYER
+let dragging=false;
+function startDrag(e){ dragging=true; dragPlayer(e); }
+function dragPlayer(e){
+  if(!dragging) return;
+  let x=e.clientX-player.offsetWidth/2;
+  x=Math.max(0,Math.min(game.clientWidth-player.offsetWidth,x));
+  player.style.left=x+"px";
+}
+function endDrag(){ dragging=false; }
+
+// GAME LOOP
+function gameLoop(){
+  const step=10;
+  let left=parseFloat(player.style.left)||(game.clientWidth/2-40);
+  if(moveLeft) left-=step;
+  if(moveRight) left+=step;
+  left=Math.max(0,Math.min(game.clientWidth-player.offsetWidth,left));
+  player.style.left=left+"px";
+
+  if(score>=70 && !frenzyMode){
+    frenzyMode=true;
+    enemySpeed=7;
+    clearInterval(spawnInterval);
+    spawnInterval=setInterval(spawnEnemy,300);
+  }
+
+  enemies.forEach((enemy,i)=>{
+    let top=parseFloat(enemy.style.top);
+    enemy.style.top=top+enemySpeed+"px";
+
+    const eRect=enemy.getBoundingClientRect();
+    const pRect=player.getBoundingClientRect();
+    if(!(eRect.right<pRect.left||eRect.left>pRect.right||eRect.bottom<pRect.top||eRect.top>pRect.bottom)){
+      score-=15; updateInfo();
+      enemy.remove(); enemies.splice(i,1);
+    }
+    if(top>game.clientHeight){
+      enemy.remove(); enemies.splice(i,1);
+    }
+  });
+
+  bullets.forEach((bullet,i)=>{
+    let top=parseFloat(bullet.style.top);
+    bullet.style.top=top-12+"px";
+
+    enemies.forEach((enemy,j)=>{
+      const eRect=enemy.getBoundingClientRect();
+      const bRect=bullet.getBoundingClientRect();
+      if(!(bRect.right<eRect.left||bRect.left>eRect.right||bRect.bottom<eRect.top||bRect.top>eRect.bottom)){
+        score+=10;
+        updateInfo();
+        enemy.remove(); bullet.remove();
+        enemies.splice(j,1); bullets.splice(i,1);
+      }
+    });
+
+    if(top<-20){ bullet.remove(); bullets.splice(i,1); }
+  });
+
+  if(score>=TARGET_SCORE){
+    endGame();
+    return;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+async function endGame(){
+  clearInterval(spawnInterval);
+  alert(`Fine! Alla prossima 😎`);
+
+  // Rimuovo il nome scelto dalla dropdown
+  availableNames = availableNames.filter(n=>n!==currentPlayerName);
+  playerSelect.innerHTML='<option value="">Scegli il tuo nome</option>';
+  availableNames.forEach(n=>{
+    const opt=document.createElement("option");
+    opt.value=n; opt.textContent=n;
+    playerSelect.appendChild(opt);
+  });
+
+  playerSelect.disabled=false;
+  document.getElementById("startBtn").disabled=false;
+
+  game.innerHTML="";
+  bullets=[]; enemies=[]; frenzyMode=false; enemySpeed=4;
+  updateInfo();
+}
+</script>
+
+</body>
+</html>
