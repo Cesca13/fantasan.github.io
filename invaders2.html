@@ -159,7 +159,7 @@ async function loadPlayerNames(){
 
   const { data: players, error } = await supabaseClient
     .from('players')
-    .select('id, name')
+    .select('id, player')
     .is('MorganInvaders', null);
 
   if(error){
