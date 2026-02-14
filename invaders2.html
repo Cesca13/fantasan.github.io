@@ -141,6 +141,7 @@ let spawnInterval;
 let bullets = [];
 let enemies = [];
 let currentPlayerId = null;
+let currentPlayerName = "";
 const TARGET_SCORE = 100;
 
 let player, game;
@@ -158,7 +159,7 @@ async function loadPlayerNames(){
   const { data: players, error } = await supabaseClient
     .from('players')
     .select('id, player')
-    .is('MorganInvaders', null); // seleziona solo chi non ha giocato
+    .is('MorganInvaders', null);
 
   if(error){
     console.error(error);
@@ -178,6 +179,7 @@ async function loadPlayerNames(){
 async function startGame(){
   const nameSelect = document.getElementById("playerName");
   currentPlayerId = nameSelect.value;
+  currentPlayerName = nameSelect.options[nameSelect.selectedIndex].text;
   if(!currentPlayerId){ alert("Seleziona un nome!"); return; }
 
   // aggiorna colonna MorganInvaders con data/ora corrente
@@ -351,12 +353,12 @@ async function endGame(){
 
   // salva su tabella invaders
   await supabaseClient.from('invaders').insert({
-    name: currentPlayerId,
-    score: score,
+    name: currentPlayerName,
     time: timeElapsed
+    // created_at viene gestito automaticamente
   });
 
-  alert("Fine! Alla prossima 😎");
+  alert(`Fine! ${currentPlayerName} ha fatto ${score} punti in ${timeElapsed.toFixed(1)}s`);
 
   const nameSelect = document.getElementById("playerName");
   nameSelect.disabled = false;
