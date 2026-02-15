@@ -145,7 +145,7 @@ async function loadPlayers(){
   const {data,error}=await supabaseClient
     .from("players")
     .select("id, player")
-    .is("Laura", null);
+    .is("LauraJump", null);
 
   if(error){
     select.innerHTML='<option>Errore caricamento</option>';
