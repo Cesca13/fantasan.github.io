@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Laura>Jump</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body{
+  margin:0;
+  background:#111;
+  font-family:Arial;
+  color:white;
+  text-align:center;
+  user-select:none;
+  overflow:hidden;
+}
+
+#game{
+  position:relative;
+  width:100%;
+  max-width:600px;
+  height:300px;
+  margin:0 auto;
+  overflow:hidden;
+  border-bottom:4px solid #2e7d32;
+  background:#87ceeb;
+}
+
+.grass{
+  position:absolute;
+  bottom:0;
+  width:200%;
+  height:20%;
+  background:#4caf50;
+  z-index:0;
+}
+
+.cloud{
+  position:absolute;
+  width:120px;
+  height:60px;
+  background:white;
+  border-radius:50px;
+  box-shadow:
+    30px 10px 0 10px white,
+    60px 0px 0 15px white;
+  opacity:0.9;
+  z-index:0;
+}
+
+#player{
+  position:absolute;
+  bottom:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:64px;
+  height:96px;
+  background:url("https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/laura.png") no-repeat;
+  background-size:192px 96px;
+  z-index:2;
+}
+
+.sheep{
+  position:absolute;
+  bottom:0;
+  font-size:40px;
+  z-index:1;
+}
+
+.note{
+  position:absolute;
+  font-size:35px;
+  z-index:1;
+}
+
+.pop{
+  position:absolute;
+  font-size:30px;
+  animation:fadeUp 0.6s forwards;
+  pointer-events:none;
+}
+
+@keyframes fadeUp{
+  0%{opacity:1; transform:translateY(0);}
+  100%{opacity:0; transform:translateY(-40px);}
+}
+
+#jumpBtn{
+  margin-top:20px;
+  padding:20px 50px;
+  font-size:24px;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+}
+
+#info{
+  font-size:22px;
+  margin:10px;
+}
+
+select, button{
+  padding:10px 20px;
+  font-size:18px;
+  margin:5px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Obstacle Run</h1>
+
+<select id="playerSelect">
+  <option value="">Caricamento nomi...</option>
+</select>
+<button id="startBtn">START</button>
+
+<div id="info">Vite: 5 | Punti: 0</div>
+
+<div id="game" style="display:none;">
+  <div class="grass" id="grass"></div>
+  <div id="player"></div>
+</div>
+
+<button id="jumpBtn" style="display:none;">SALTA</button>
+
+<script>
+const supabaseClient = supabase.createClient(
+  "https://xloiaewcuwelufblecxf.supabase.co",
+  "sb_publishable_SlM0ePMXPgoJjC47P8o-IQ_w6iEn_OP"
+);
+
+let currentPlayerId=null;
+let currentPlayerName="";
+let startTime;
+
+/* LOAD PLAYERS FILTRATI SU COLONNA Laura */
+async function loadPlayers(){
+  const select=document.getElementById("playerSelect");
+  select.innerHTML='<option value="">Scegli il tuo nome</option>';
+
+  const {data,error}=await supabaseClient
+    .from("players")
+    .select("id, player")
+    .is("Laura", null);
+
+  if(error){
+    select.innerHTML='<option>Errore caricamento</option>';
+    return;
+  }
+
+  data.forEach(p=>{
+    const option=document.createElement("option");
+    option.value=p.id;
+    option.textContent=p.player;
+    select.appendChild(option);
+  });
+}
+
+loadPlayers();
+
+/* START */
+document.getElementById("startBtn").addEventListener("click", async ()=>{
+  const select=document.getElementById("playerSelect");
+  currentPlayerId=select.value;
+  if(!currentPlayerId){
+    alert("Seleziona un nome!");
+    return;
+  }
+
+  const {data}=await supabaseClient
+    .from("players")
+    .select("player")
+    .eq("id", currentPlayerId)
+    .single();
+
+  currentPlayerName=data.player;
+
+  await supabaseClient
+    .from("players")
+    .update({ Laura: new Date().toISOString() })
+    .eq("id", currentPlayerId);
+
+  select.style.display="none";
+  document.getElementById("startBtn").style.display="none";
+  document.getElementById("game").style.display="block";
+  document.getElementById("jumpBtn").style.display="inline-block";
+
+  startTime=performance.now();
+});
+
+/* ============================= */
+/* ====== GIOCO ORIGINALE ====== */
+/* ============================= */
+
+const player = document.getElementById("player");
+const game = document.getElementById("game");
+const info = document.getElementById("info");
+const grass = document.getElementById("grass");
+
+const noteSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+const hitSound = new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg");
+
+let velocity=0;
+let gravity=1.2;
+let lives=5;
+let points=0;
+let speed=6;
+
+let sheepArray=[];
+let notesArray=[];
+let cloudsArray=[];
+
+player.style.bottom="0px";
+
+let isGrounded=true;
+function jump(){
+  if(!isGrounded) return;
+  velocity=20;
+  isGrounded=false;
+}
+
+document.getElementById("jumpBtn").addEventListener("mousedown", jump);
+document.addEventListener("keydown", e=>{ if(e.code==="Space") jump(); });
+
+function spawnSheep(){
+  const sheep=document.createElement("div");
+  sheep.classList.add("sheep");
+  sheep.innerHTML="🐑";
+  sheep.style.left=game.offsetWidth+"px";
+  game.appendChild(sheep);
+  sheepArray.push(sheep);
+}
+setInterval(spawnSheep,2000);
+
+function spawnNote(){
+  const note=document.createElement("div");
+  note.classList.add("note");
+  note.innerHTML="🎵";
+  note.style.left=game.offsetWidth+"px";
+  note.style.bottom=(60+Math.random()*120)+"px";
+  game.appendChild(note);
+  notesArray.push(note);
+}
+setInterval(spawnNote,2500);
+
+function update(){
+
+  let bottom=parseFloat(player.style.bottom);
+  bottom+=velocity;
+  velocity-=gravity;
+
+  if(bottom<=0){
+    bottom=0;
+    velocity=0;
+    isGrounded=true;
+  }
+
+  player.style.bottom=bottom+"px";
+  const p=player.getBoundingClientRect();
+
+  sheepArray.forEach((sheep,i)=>{
+    let left=parseFloat(sheep.style.left);
+    left-=speed;
+    sheep.style.left=left+"px";
+    const r=sheep.getBoundingClientRect();
+
+    if(p.left<r.right && p.right>r.left && p.bottom>r.top){
+      lives--;
+      hitSound.play();
+      sheep.remove();
+      sheepArray.splice(i,1);
+      updateInfo();
+      if(lives<=0) endGame();
+    }
+
+    if(left<-50){
+      sheep.remove();
+      sheepArray.splice(i,1);
+    }
+  });
+
+  notesArray.forEach((note,i)=>{
+    let left=parseFloat(note.style.left);
+    left-=speed;
+    note.style.left=left+"px";
+    const r=note.getBoundingClientRect();
+
+    if(p.left<r.right && p.right>r.left && p.top<r.bottom && p.bottom>r.top){
+      points+=10;
+      noteSound.play();
+      note.remove();
+      notesArray.splice(i,1);
+      updateInfo();
+    }
+
+    if(left<-50){
+      note.remove();
+      notesArray.splice(i,1);
+    }
+  });
+
+  speed+=0.003;
+  requestAnimationFrame(update);
+}
+
+function updateInfo(){
+  info.innerText=`Vite: ${lives} | Punti: ${points}`;
+}
+
+async function endGame(){
+  const duration=(performance.now()-startTime)/1000;
+
+  await supabaseClient.from("jump").insert({
+    name: currentPlayerName,
+    score: points,
+    time: duration
+  });
+
+  alert("Game Over! Punti: "+points);
+  location.reload();
+}
+
+update();
+</script>
+
+</body>
+</html>
