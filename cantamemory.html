@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>Memory Levels</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 body{
@@ -21,6 +20,18 @@ h1{ margin:10px; }
   font-size:18px;
 }
 
+#resetBtn{
+  position:sticky;
+  top:10px;
+  z-index:10;
+  padding:10px 20px;
+  font-size:16px;
+  border:none;
+  border-radius:6px;
+  margin-bottom:20px;
+  cursor:pointer;
+}
+
 #game{
   width:95vw;
   max-width:600px;
@@ -34,6 +45,8 @@ h1{ margin:10px; }
   width:100%;
   padding-top:100%;
   perspective:800px;
+  touch-action: manipulation;
+  user-select:none;
 }
 
 .inner{
@@ -56,170 +69,119 @@ h1{ margin:10px; }
   backface-visibility:hidden;
 }
 
-.front{ background:#444; }
+.front{
+  background:#444;
+}
 
 .back{
   transform:rotateY(180deg);
   background-size:cover;
   background-position:center;
 }
-
-button{
-  padding:10px 20px;
-  font-size:16px;
-  border:none;
-  border-radius:6px;
-  margin:5px;
-}
-
-select{
-  padding:8px;
-  font-size:16px;
-  margin:5px;
-}
 </style>
 </head>
+
 <body>
 
 <h1>🧠 Memory Challenge</h1>
-
-<select id="playerSelect">
-  <option value="">Caricamento nomi...</option>
-</select>
-<button id="startBtn">START</button>
-
 <div id="info">Livello: 1 | Tempo: 0s</div>
-<div id="game" style="display:none;"></div>
-<button onclick="restart()" style="display:none;" id="restartBtn">Restart</button>
+
+<button id="resetBtn" onclick="restart()">Restart</button>
+
+<div id="game"></div>
 
 <script>
-const supabaseClient = supabase.createClient(
-  "https://xloiaewcuwelufblecxf.supabase.co",
-  "sb_publishable_SlM0ePMXPgoJjC47P8o-IQ_w6iEn_OP"
-);
+const game = document.getElementById("game");
+const info = document.getElementById("info");
 
-let currentPlayerId=null;
-let currentPlayerName="";
-let level=1;
-let flipped=[];
-let matched=0;
+let level = 1;
+let flipped = [];
+let matched = 0;
 let startTime;
 let timerInterval;
+let isProcessing = false;
 
-const game=document.getElementById("game");
-const info=document.getElementById("info");
-
-const levels=[
+const levels = [
   {size:4},
   {size:6},
   {size:8}
 ];
 
-const images=[
-  "https://picsum.photos/200?1","https://picsum.photos/200?2",
-  "https://picsum.photos/200?3","https://picsum.photos/200?4",
-  "https://picsum.photos/200?5","https://picsum.photos/200?6",
-  "https://picsum.photos/200?7","https://picsum.photos/200?8",
-  "https://picsum.photos/200?9","https://picsum.photos/200?10",
-  "https://picsum.photos/200?11","https://picsum.photos/200?12",
-  "https://picsum.photos/200?13","https://picsum.photos/200?14",
-  "https://picsum.photos/200?15","https://picsum.photos/200?16",
-  "https://picsum.photos/200?17","https://picsum.photos/200?18",
-  "https://picsum.photos/200?19","https://picsum.photos/200?20",
-  "https://picsum.photos/200?21","https://picsum.photos/200?22",
-  "https://picsum.photos/200?23","https://picsum.photos/200?24",
-  "https://picsum.photos/200?25","https://picsum.photos/200?26",
-  "https://picsum.photos/200?27","https://picsum.photos/200?28",
-  "https://picsum.photos/200?29","https://picsum.photos/200?30",
-  "https://picsum.photos/200?31","https://picsum.photos/200?32"
+// immagini placeholder
+const images = [
+  "https://picsum.photos/200?1",
+  "https://picsum.photos/200?2",
+  "https://picsum.photos/200?3",
+  "https://picsum.photos/200?4",
+  "https://picsum.photos/200?5",
+  "https://picsum.photos/200?6",
+  "https://picsum.photos/200?7",
+  "https://picsum.photos/200?8",
+  "https://picsum.photos/200?9",
+  "https://picsum.photos/200?10",
+  "https://picsum.photos/200?11",
+  "https://picsum.photos/200?12",
+  "https://picsum.photos/200?13",
+  "https://picsum.photos/200?14",
+  "https://picsum.photos/200?15",
+  "https://picsum.photos/200?16",
+  "https://picsum.photos/200?17",
+  "https://picsum.photos/200?18",
+  "https://picsum.photos/200?19",
+  "https://picsum.photos/200?20",
+  "https://picsum.photos/200?21",
+  "https://picsum.photos/200?22",
+  "https://picsum.photos/200?23",
+  "https://picsum.photos/200?24",
+  "https://picsum.photos/200?25",
+  "https://picsum.photos/200?26",
+  "https://picsum.photos/200?27",
+  "https://picsum.photos/200?28",
+  "https://picsum.photos/200?29",
+  "https://picsum.photos/200?30",
+  "https://picsum.photos/200?31",
+  "https://picsum.photos/200?32"
 ];
-
-/* LOAD PLAYERS FILTRATI SU COLONNA memory */
-async function loadPlayers(){
-  const select=document.getElementById("playerSelect");
-  select.innerHTML='<option value="">Scegli il tuo nome</option>';
-
-  const {data,error}=await supabaseClient
-    .from("players")
-    .select("id, player")
-    .is("memory", null);
-
-  if(error){
-    select.innerHTML='<option>Errore caricamento</option>';
-    return;
-  }
-
-  data.forEach(p=>{
-    const option=document.createElement("option");
-    option.value=p.id;
-    option.textContent=p.player;
-    select.appendChild(option);
-  });
-}
-
-loadPlayers();
-
-/* START */
-document.getElementById("startBtn").addEventListener("click", async ()=>{
-  const select=document.getElementById("playerSelect");
-  currentPlayerId=select.value;
-  if(!currentPlayerId){
-    alert("Seleziona un nome!");
-    return;
-  }
-
-  const {data}=await supabaseClient
-    .from("players")
-    .select("player")
-    .eq("id", currentPlayerId)
-    .single();
-
-  currentPlayerName=data.player;
-
-  await supabaseClient
-    .from("players")
-    .update({ memory: new Date().toISOString() })
-    .eq("id", currentPlayerId);
-
-  select.style.display="none";
-  document.getElementById("startBtn").style.display="none";
-  document.getElementById("game").style.display="grid";
-  document.getElementById("restartBtn").style.display="inline-block";
-
-  startGame();
-});
-
-/* ===== MEMORY GAME ORIGINALE ===== */
 
 function shuffle(array){
   return array.sort(()=>Math.random()-0.5);
 }
 
 function createBoard(){
-  const size=levels[level-1].size;
-  game.style.gridTemplateColumns=`repeat(${size},1fr)`;
+  const size = levels[level-1].size;
+  game.style.gridTemplateColumns = `repeat(${size},1fr)`;
+
   game.innerHTML="";
   flipped=[];
   matched=0;
+  isProcessing=false;
 
-  const totalPairs=(size*size)/2;
-  const selectedImages=images.slice(0,totalPairs);
-  const doubled=shuffle([...selectedImages,...selectedImages]);
+  const totalPairs = (size*size)/2;
+  const selectedImages = images.slice(0,totalPairs);
+  const doubled = shuffle([...selectedImages,...selectedImages]);
 
   doubled.forEach(img=>{
-    const card=document.createElement("div");
+    const card = document.createElement("div");
     card.classList.add("card");
+
     card.innerHTML=`
       <div class="inner">
         <div class="front"></div>
         <div class="back" style="background-image:url('${img}')"></div>
-      </div>`;
-    card.addEventListener("click",()=>flipCard(card,img));
+      </div>
+    `;
+
+    card.addEventListener("pointerdown", (e)=>{
+      e.preventDefault();
+      flipCard(card,img);
+    });
+
     game.appendChild(card);
   });
 }
 
 function flipCard(card,img){
+  if(isProcessing) return;
   if(card.classList.contains("flip")) return;
   if(flipped.length===2) return;
 
@@ -227,51 +189,49 @@ function flipCard(card,img){
   flipped.push({card,img});
 
   if(flipped.length===2){
+    isProcessing = true;
+
     if(flipped[0].img===flipped[1].img){
       matched+=2;
       flipped=[];
+      isProcessing = false;
       checkLevelComplete();
-    }else{
+    } else {
       setTimeout(()=>{
         flipped.forEach(f=>f.card.classList.remove("flip"));
         flipped=[];
+        isProcessing = false;
       },700);
     }
   }
 }
 
-async function checkLevelComplete(){
-  const size=levels[level-1].size;
-
-  if(matched===size*size){
+function checkLevelComplete(){
+  const size = levels[level-1].size;
+  if(matched === size*size){
     level++;
-    if(level>levels.length){
+
+    if(level > levels.length){
       clearInterval(timerInterval);
-      const totalTime=Math.floor((Date.now()-startTime)/1000);
-
-      await supabaseClient.from("memorySing").insert({
-        name: currentPlayerName,
-        time: totalTime
-      });
-
+      const totalTime = Math.floor((Date.now()-startTime)/1000);
       setTimeout(()=>{
-        alert("Hai completato tutti i livelli! 🎉 Tempo totale: "+totalTime+"s");
-        location.reload();
+        alert("Hai completato tutti i livelli! 🎉 Tempo totale: " + totalTime + "s");
       },300);
       return;
     }
+
     createBoard();
   }
 }
 
 function updateTimer(){
-  const time=Math.floor((Date.now()-startTime)/1000);
-  info.innerText=`Livello: ${level} | Tempo: ${time}s`;
+  const time = Math.floor((Date.now()-startTime)/1000);
+  info.innerText = `Livello: ${level} | Tempo: ${time}s`;
 }
 
 function startGame(){
-  startTime=Date.now();
-  timerInterval=setInterval(updateTimer,1000);
+  startTime = Date.now();
+  timerInterval = setInterval(updateTimer,1000);
   createBoard();
 }
 
@@ -280,6 +240,8 @@ function restart(){
   clearInterval(timerInterval);
   startGame();
 }
+
+startGame();
 </script>
 
 </body>
