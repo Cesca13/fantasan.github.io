@@ -26,6 +26,7 @@ select, button{
   border:none;
   border-radius:6px;
   margin:5px;
+  cursor:pointer;
 }
 
 #info{
@@ -34,9 +35,6 @@ select, button{
 }
 
 #resetBtn{
-  position:sticky;
-  top:10px;
-  z-index:10;
   display:none;
 }
 
@@ -48,30 +46,18 @@ select, button{
   gap:8px;
 }
 
-/* ===== CARD FIX DEFINITIVO TOUCH ===== */
-
 .card{
   position:relative;
   width:100%;
   padding-top:100%;
-  perspective:800px;
-  touch-action:manipulation;
-  user-select:none;
-  transform:translateZ(0);
-  will-change:transform;
-}
-
-.inner,
-.front,
-.back{
-  pointer-events:none;   /* IMPORTANTISSIMO */
+  perspective:1000px;
 }
 
 .inner{
   position:absolute;
   width:100%;
   height:100%;
-  transition:transform 0.4s;
+  transition:transform 0.4s ease;
   transform-style:preserve-3d;
 }
 
@@ -108,7 +94,7 @@ select, button{
     <option>Caricamento...</option>
   </select>
   <button id="startBtn">START</button>
-  <button id="resetBtn" onclick="restart()">RESET</button>
+  <button id="resetBtn">RESET</button>
 </div>
 
 <div id="info">Livello: 1 | Tempo: 0s</div>
@@ -122,43 +108,31 @@ const supabaseClient = supabase.createClient(
 
 const game=document.getElementById("game");
 const info=document.getElementById("info");
+const resetBtn=document.getElementById("resetBtn");
 
 let currentPlayerId=null;
 let currentPlayerName="";
 let level=1;
-let flipped=[];
-let matched=0;
+let flippedCards=[];
+let matchedPairs=0;
 let startTime;
 let timerInterval;
-let isProcessing=false;
+let lockBoard=false;
 
-const levels=[{size:4},{size:6},{size:8}];
+const levels=[4,6,8];
 
-const images=[
-  "https://picsum.photos/200?1","https://picsum.photos/200?2",
-  "https://picsum.photos/200?3","https://picsum.photos/200?4",
-  "https://picsum.photos/200?5","https://picsum.photos/200?6",
-  "https://picsum.photos/200?7","https://picsum.photos/200?8",
-  "https://picsum.photos/200?9","https://picsum.photos/200?10",
-  "https://picsum.photos/200?11","https://picsum.photos/200?12",
-  "https://picsum.photos/200?13","https://picsum.photos/200?14",
-  "https://picsum.photos/200?15","https://picsum.photos/200?16",
-  "https://picsum.photos/200?17","https://picsum.photos/200?18",
-  "https://picsum.photos/200?19","https://picsum.photos/200?20",
-  "https://picsum.photos/200?21","https://picsum.photos/200?22",
-  "https://picsum.photos/200?23","https://picsum.photos/200?24",
-  "https://picsum.photos/200?25","https://picsum.photos/200?26",
-  "https://picsum.photos/200?27","https://picsum.photos/200?28",
-  "https://picsum.photos/200?29","https://picsum.photos/200?30",
-  "https://picsum.photos/200?31","https://picsum.photos/200?32"
-];
+const images=Array.from({length:32}, (_,i)=>`https://picsum.photos/200?random=${i}`);
 
+/* ===== SHUFFLE CORRETTO ===== */
 function shuffle(array){
-  return array.sort(()=>Math.random()-0.5);
+  for(let i=array.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [array[i],array[j]]=[array[j],array[i]];
+  }
+  return array;
 }
 
 /* ===== LOAD PLAYERS ===== */
-
 async function loadPlayers(){
   const {data,error}=await supabaseClient
     .from("players")
@@ -184,11 +158,14 @@ async function loadPlayers(){
 loadPlayers();
 
 /* ===== START ===== */
-
 document.getElementById("startBtn").addEventListener("click", async ()=>{
   const select=document.getElementById("playerSelect");
   currentPlayerId=select.value;
-  if(!currentPlayerId){ alert("Seleziona un nome"); return; }
+
+  if(!currentPlayerId){
+    alert("Seleziona un nome");
+    return;
+  }
 
   const {data}=await supabaseClient
     .from("players")
@@ -205,28 +182,29 @@ document.getElementById("startBtn").addEventListener("click", async ()=>{
 
   select.style.display="none";
   document.getElementById("startBtn").style.display="none";
-  document.getElementById("resetBtn").style.display="inline-block";
+  resetBtn.style.display="inline-block";
   game.style.display="grid";
 
   startGame();
 });
 
-/* ===== GAME ===== */
-
+/* ===== CREA BOARD ===== */
 function createBoard(){
-  const size=levels[level-1].size;
+  const size=levels[level-1];
+  const totalCards=size*size;
+  const totalPairs=totalCards/2;
+
   game.style.gridTemplateColumns=`repeat(${size},1fr)`;
-
   game.innerHTML="";
-  flipped=[];
-  matched=0;
-  isProcessing=false;
 
-  const totalPairs=(size*size)/2;
-  const selectedImages=images.slice(0,totalPairs);
-  const doubled=shuffle([...selectedImages,...selectedImages]);
+  flippedCards=[];
+  matchedPairs=0;
+  lockBoard=false;
 
-  doubled.forEach(img=>{
+  const selected=images.slice(0,totalPairs);
+  const cards=shuffle([...selected,...selected]);
+
+  cards.forEach(img=>{
     const card=document.createElement("div");
     card.className="card";
     card.dataset.image=img;
@@ -237,45 +215,53 @@ function createBoard(){
         <div class="back" style="background-image:url('${img}')"></div>
       </div>`;
 
-    card.addEventListener("pointerdown", handleCardClick);
+    card.addEventListener("click", handleCardClick);
 
     game.appendChild(card);
   });
 }
 
+/* ===== CLICK SICURO ===== */
 function handleCardClick(e){
   const card=e.currentTarget;
-  const img=card.dataset.image;
 
-  if(isProcessing) return;
+  if(lockBoard) return;
   if(card.classList.contains("flip")) return;
-  if(flipped.length===2) return;
 
   card.classList.add("flip");
-  flipped.push({card,img});
+  flippedCards.push(card);
 
-  if(flipped.length===2){
-    isProcessing=true;
-
-    if(flipped[0].img===flipped[1].img){
-      matched+=2;
-      flipped=[];
-      isProcessing=false;
-      checkLevelComplete();
-    }else{
-      setTimeout(()=>{
-        flipped.forEach(f=>f.card.classList.remove("flip"));
-        flipped=[];
-        isProcessing=false;
-      },700);
-    }
+  if(flippedCards.length===2){
+    checkMatch();
   }
 }
 
-async function checkLevelComplete(){
-  const size=levels[level-1].size;
+function checkMatch(){
+  lockBoard=true;
 
-  if(matched===size*size){
+  const [card1,card2]=flippedCards;
+  const isMatch=card1.dataset.image===card2.dataset.image;
+
+  if(isMatch){
+    matchedPairs++;
+    flippedCards=[];
+    lockBoard=false;
+    checkLevelComplete();
+  }else{
+    setTimeout(()=>{
+      card1.classList.remove("flip");
+      card2.classList.remove("flip");
+      flippedCards=[];
+      lockBoard=false;
+    },700);
+  }
+}
+
+/* ===== LIVELLO COMPLETATO ===== */
+async function checkLevelComplete(){
+  const size=levels[level-1];
+
+  if(matchedPairs === (size*size)/2){
     level++;
 
     if(level>levels.length){
@@ -296,6 +282,7 @@ async function checkLevelComplete(){
   }
 }
 
+/* ===== TIMER ===== */
 function updateTimer(){
   const time=Math.floor((Date.now()-startTime)/1000);
   info.innerText=`Livello: ${level} | Tempo: ${time}s`;
@@ -307,11 +294,12 @@ function startGame(){
   createBoard();
 }
 
-function restart(){
+/* ===== RESET ===== */
+resetBtn.addEventListener("click", ()=>{
   level=1;
   clearInterval(timerInterval);
   startGame();
-}
+});
 </script>
 
 </body>
