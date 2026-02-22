@@ -157,7 +157,7 @@ async function loadPlayerNames(){
   select.innerHTML = '<option value="">Scegli il tuo nome</option>';
 
   const { data: players, error } = await supabaseClient
-    .from('players_ordered')
+    .from('players')
     .select('id, player')
     .is('MorganInvaders', null);
 
