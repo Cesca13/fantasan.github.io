@@ -6,6 +6,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
+*{
+  box-sizing:border-box;
+}
+
 body{
   margin:0;
   font-family:Arial;
@@ -16,9 +20,7 @@ body{
 
 h1{ margin:10px; }
 
-#topBar{
-  margin:10px;
-}
+#topBar{ margin:10px; }
 
 select, button{
   padding:8px 15px;
@@ -38,19 +40,26 @@ select, button{
   display:none;
 }
 
+/* GRID DEFINITA QUI */
 #game{
   width:95vw;
   max-width:600px;
   margin:20px auto;
-  display:none;
+  display:grid;
   gap:8px;
 }
+
+/* ===== CARD FIX TOUCH ===== */
 
 .card{
   position:relative;
   width:100%;
-  padding-top:100%;
+  aspect-ratio:1/1;
   perspective:1000px;
+  cursor:pointer;
+  touch-action: manipulation;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .inner{
@@ -59,6 +68,7 @@ select, button{
   height:100%;
   transition:transform 0.4s ease;
   transform-style:preserve-3d;
+  transform:translateZ(0);
 }
 
 .card.flip .inner{
@@ -71,6 +81,7 @@ select, button{
   height:100%;
   border-radius:10px;
   backface-visibility:hidden;
+  pointer-events:none;
 }
 
 .front{
@@ -98,7 +109,7 @@ select, button{
 </div>
 
 <div id="info">Livello: 1 | Tempo: 0s</div>
-<div id="game"></div>
+<div id="game" style="display:none;"></div>
 
 <script>
 const supabaseClient = supabase.createClient(
@@ -120,10 +131,8 @@ let timerInterval;
 let lockBoard=false;
 
 const levels=[4,6,8];
-
 const images=Array.from({length:32}, (_,i)=>`https://picsum.photos/200?random=${i}`);
 
-/* ===== SHUFFLE CORRETTO ===== */
 function shuffle(array){
   for(let i=array.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
@@ -132,7 +141,6 @@ function shuffle(array){
   return array;
 }
 
-/* ===== LOAD PLAYERS ===== */
 async function loadPlayers(){
   const {data,error}=await supabaseClient
     .from("players")
@@ -154,10 +162,8 @@ async function loadPlayers(){
     select.appendChild(option);
   });
 }
-
 loadPlayers();
 
-/* ===== START ===== */
 document.getElementById("startBtn").addEventListener("click", async ()=>{
   const select=document.getElementById("playerSelect");
   currentPlayerId=select.value;
@@ -188,15 +194,12 @@ document.getElementById("startBtn").addEventListener("click", async ()=>{
   startGame();
 });
 
-/* ===== CREA BOARD ===== */
 function createBoard(){
   const size=levels[level-1];
-  const totalCards=size*size;
-  const totalPairs=totalCards/2;
+  const totalPairs=(size*size)/2;
 
   game.style.gridTemplateColumns=`repeat(${size},1fr)`;
   game.innerHTML="";
-
   flippedCards=[];
   matchedPairs=0;
   lockBoard=false;
@@ -215,32 +218,27 @@ function createBoard(){
         <div class="back" style="background-image:url('${img}')"></div>
       </div>`;
 
-    card.addEventListener("click", handleCardClick);
+    card.addEventListener("click", ()=>{
+      if(lockBoard) return;
+      if(card.classList.contains("flip")) return;
+
+      card.classList.add("flip");
+      flippedCards.push(card);
+
+      if(flippedCards.length===2){
+        checkMatch();
+      }
+    });
 
     game.appendChild(card);
   });
 }
 
-/* ===== CLICK SICURO ===== */
-function handleCardClick(e){
-  const card=e.currentTarget;
-
-  if(lockBoard) return;
-  if(card.classList.contains("flip")) return;
-
-  card.classList.add("flip");
-  flippedCards.push(card);
-
-  if(flippedCards.length===2){
-    checkMatch();
-  }
-}
-
 function checkMatch(){
   lockBoard=true;
 
-  const [card1,card2]=flippedCards;
-  const isMatch=card1.dataset.image===card2.dataset.image;
+  const [c1,c2]=flippedCards;
+  const isMatch=c1.dataset.image===c2.dataset.image;
 
   if(isMatch){
     matchedPairs++;
@@ -249,19 +247,18 @@ function checkMatch(){
     checkLevelComplete();
   }else{
     setTimeout(()=>{
-      card1.classList.remove("flip");
-      card2.classList.remove("flip");
+      c1.classList.remove("flip");
+      c2.classList.remove("flip");
       flippedCards=[];
       lockBoard=false;
-    },700);
+    },600);
   }
 }
 
-/* ===== LIVELLO COMPLETATO ===== */
 async function checkLevelComplete(){
   const size=levels[level-1];
 
-  if(matchedPairs === (size*size)/2){
+  if(matchedPairs===(size*size)/2){
     level++;
 
     if(level>levels.length){
@@ -282,7 +279,6 @@ async function checkLevelComplete(){
   }
 }
 
-/* ===== TIMER ===== */
 function updateTimer(){
   const time=Math.floor((Date.now()-startTime)/1000);
   info.innerText=`Livello: ${level} | Tempo: ${time}s`;
@@ -294,7 +290,6 @@ function startGame(){
   createBoard();
 }
 
-/* ===== RESET ===== */
 resetBtn.addEventListener("click", ()=>{
   level=1;
   clearInterval(timerInterval);
