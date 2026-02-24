@@ -120,8 +120,7 @@ select.innerHTML='<option value="">Scegli il tuo nome</option>';
 const {data}=await supabaseClient
 .from("players")
 .select("id, player")
-.is("LauraJump", null)
-.order("player",{ascending:true});
+.is("LauraJump", null);
 
 data.forEach(p=>{
 const option=document.createElement("option");
