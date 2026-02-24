@@ -181,7 +181,7 @@ document.getElementById("startBtn").addEventListener("click", async ()=>{
 
   await supabaseClient
     .from("players")
-    .update({ Laura: new Date().toISOString() })
+    .update({ LauraJump: new Date().toISOString() })
     .eq("id", currentPlayerId);
 
   select.style.display="none";
