@@ -14,7 +14,7 @@ body{
   color:white;
   text-align:center;
   user-select:none;
-  overflow:hidden;
+  overflow-x:hidden;
 }
 
 #game{
@@ -240,7 +240,9 @@ function jump(){
   isGrounded=false;
 }
 
-document.getElementById("jumpBtn").addEventListener("mousedown", jump);
+const jumpBtn = document.getElementById("jumpBtn");
+
+jumpBtn.addEventListener("pointerdown", jump);
 document.addEventListener("keydown", e=>{ if(e.code==="Space") jump(); });
 
 function spawnSheep(){
