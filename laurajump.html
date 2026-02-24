@@ -114,20 +114,40 @@ let gameRunning=false;
 /* ========================= */
 
 async function loadPlayers(){
-const select=document.getElementById("playerSelect");
-select.innerHTML='<option value="">Scegli il tuo nome</option>';
+  const select = document.getElementById("playerSelect");
+  select.innerHTML = '<option value="">Caricamento nomi...</option>';
 
-const {data}=await supabaseClient
-.from("players")
-.select("id, player")
-.is("LauraJump", null);
+  try {
+    const { data, error } = await supabaseClient
+      .from("players")
+      .select("id, player")
+      .is("LauraJump", null)
+      .order("player", { ascending: true }); // ordina alfabeticamente
 
-data.forEach(p=>{
-const option=document.createElement("option");
-option.value=p.id;
-option.textContent=p.player;
-select.appendChild(option);
-});
+    if(error){
+      console.error("Errore query:", error);
+      select.innerHTML = '<option value="">Errore caricamento</option>';
+      return;
+    }
+
+    if(!data || data.length === 0){
+      select.innerHTML = '<option value="">Nessun giocatore disponibile</option>';
+      return;
+    }
+
+    // svuota e popola
+    select.innerHTML = '<option value="">Scegli il tuo nome</option>';
+    data.forEach(p => {
+      const option = document.createElement("option");
+      option.value = p.id;
+      option.textContent = p.player;
+      select.appendChild(option);
+    });
+
+  } catch(err) {
+    console.error("Errore fetch:", err);
+    select.innerHTML = '<option value="">Errore caricamento</option>';
+  }
 }
 
 loadPlayers();
