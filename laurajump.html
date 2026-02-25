@@ -104,6 +104,14 @@ const supabaseClient = supabase.createClient(
 "sb_publishable_SlM0ePMXPgoJjC47P8o-IQ_w6iEn_OP"
 );
 
+/* ================= DEVICE ID ================= */
+
+if(!localStorage.getItem("device_id")){
+  localStorage.setItem("device_id", crypto.randomUUID());
+}
+const deviceId = localStorage.getItem("device_id");
+/* ================================================= */
+
 let currentPlayerId=null;
 let currentPlayerName="";
 let startTime;
@@ -178,6 +186,18 @@ await supabaseClient
 .from("players")
 .update({ LauraJump: new Date().toISOString() })
 .eq("id", currentPlayerId);
+
+/* --- inserisce LOG DI START --- */
+await supabaseClient
+  .from('log')
+  .insert({
+    created_at: now,
+    gioco: "laurajump",
+    player: currentPlayerName,
+    device: deviceId
+  });
+/* ---------------------------- */
+
 
 /* UI */
 select.style.display="none";
