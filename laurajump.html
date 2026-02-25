@@ -32,7 +32,6 @@ body{
   position:absolute;
   bottom:0;
   left:80px;
-  /*transform:translateX(-50%);*/
   width:64px;
   height:96px;
   background:url("https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/laura.png") no-repeat;
@@ -105,12 +104,11 @@ const supabaseClient = supabase.createClient(
 );
 
 /* ================= DEVICE ID ================= */
-
 if(!localStorage.getItem("device_id")){
   localStorage.setItem("device_id", crypto.randomUUID());
 }
 const deviceId = localStorage.getItem("device_id");
-/* ================================================= */
+/* ============================================ */
 
 let currentPlayerId=null;
 let currentPlayerName="";
@@ -120,7 +118,6 @@ let gameRunning=false;
 /* ========================= */
 /* LOAD PLAYERS */
 /* ========================= */
-
 async function loadPlayers(){
   const select = document.getElementById("playerSelect");
   select.innerHTML = '<option value="">Caricamento nomi...</option>';
@@ -130,7 +127,7 @@ async function loadPlayers(){
       .from("players")
       .select("id, player")
       .is("LauraJump", null)
-      .order("player", { ascending: true }); // ordina alfabeticamente
+      .order("player", { ascending: true });
 
     if(error){
       console.error("Errore query:", error);
@@ -157,77 +154,75 @@ async function loadPlayers(){
     select.innerHTML = '<option value="">Errore caricamento</option>';
   }
 }
-
 loadPlayers();
 
 /* ========================= */
-/* START */
+/* START GAME */
 /* ========================= */
+const startBtn = document.getElementById("startBtn");
+const game = document.getElementById("game");
 
-document.getElementById("startBtn").addEventListener("click", async ()=>{
+startBtn.addEventListener("click", async ()=>{
+  const select = document.getElementById("playerSelect");
+  currentPlayerId = select.value;
 
-const select=document.getElementById("playerSelect");
-currentPlayerId=select.value;
+  if(!currentPlayerId){
+    alert("Seleziona un nome!");
+    return;
+  }
 
-if(!currentPlayerId){
-alert("Seleziona un nome!");
-return;
-}
+  // Recupera nome giocatore
+  const {data} = await supabaseClient
+    .from("players")
+    .select("player")
+    .eq("id", currentPlayerId)
+    .single();
 
-const {data}=await supabaseClient
-.from("players")
-.select("player")
-.eq("id", currentPlayerId)
-.single();
+  currentPlayerName = data.player;
 
-currentPlayerName=data.player;
+  // Aggiorna colonna LauraJump
+  await supabaseClient
+    .from("players")
+    .update({ LauraJump: new Date().toISOString() })
+    .eq("id", currentPlayerId);
 
-await supabaseClient
-.from("players")
-.update({ LauraJump: new Date().toISOString() })
-.eq("id", currentPlayerId);
+  // --- LOG DI START ---
+  const now = new Date().toISOString();
+  await supabaseClient
+    .from('log')
+    .insert({
+      created_at: now,
+      gioco: "laurajump",
+      player: currentPlayerName,
+      device: deviceId
+    });
+  /* ---------------- */
 
-/* --- inserisce LOG DI START --- */
-await supabaseClient
-  .from('log')
-  .insert({
-    created_at: now,
-    gioco: "laurajump",
-    player: currentPlayerName,
-    device: deviceId
-  });
-/* ---------------------------- */
+  // UI
+  select.style.display="none";
+  startBtn.style.display="none";
+  game.style.display="block";
+  document.getElementById("jumpBtn").style.display="inline-block";
 
+  // RESET GAME
+  velocity=0;
+  lives=5;
+  points=0;
+  speed=5;
+  sheepArray=[];
+  notesArray=[];
+  lastSpeedMilestone=0;
+  updateInfo();
 
-/* UI */
-select.style.display="none";
-startBtn.style.display="none";
-game.style.display="block";
-jumpBtn.style.display="inline-block";
-
-/* RESET GAME */
-velocity=0;
-lives=5;
-points=0;
-speed=5;
-sheepArray=[];
-notesArray=[];
-lastSpeedMilestone=0;
-updateInfo();
-
-startTime=performance.now();
-gameRunning=true;
-
-requestAnimationFrame(update);
+  startTime = performance.now();
+  gameRunning = true;
+  requestAnimationFrame(update);
 });
 
 /* ========================= */
 /* GAME ENGINE */
 /* ========================= */
-
 const player=document.getElementById("player");
-const game=document.getElementById("game");
-const info=document.getElementById("info");
 const jumpBtn=document.getElementById("jumpBtn");
 
 let velocity=0;
@@ -243,130 +238,120 @@ let notesArray=[];
 let isGrounded=true;
 
 function jump(){
-if(!isGrounded || !gameRunning) return;
-velocity=20;
-isGrounded=false;
+  if(!isGrounded || !gameRunning) return;
+  velocity=20;
+  isGrounded=false;
 }
 
 jumpBtn.addEventListener("pointerdown", jump);
 document.addEventListener("keydown", e=>{
-if(e.code==="Space") jump();
+  if(e.code==="Space") jump();
 });
 
 /* SPAWN */
-
 setInterval(()=>{
-if(!gameRunning) return;
-const sheep=document.createElement("div");
-sheep.classList.add("sheep");
-sheep.innerHTML="🐑";
-sheep.style.left=game.offsetWidth+"px";
-game.appendChild(sheep);
-sheepArray.push(sheep);
+  if(!gameRunning) return;
+  const sheep=document.createElement("div");
+  sheep.classList.add("sheep");
+  sheep.innerHTML="🐑";
+  sheep.style.left=game.offsetWidth+"px";
+  game.appendChild(sheep);
+  sheepArray.push(sheep);
 },2000);
 
 setInterval(()=>{
-if(!gameRunning) return;
-const note=document.createElement("div");
-note.classList.add("note");
-note.innerHTML="🎵";
-note.style.left=game.offsetWidth+"px";
-note.style.bottom=(60+Math.random()*120)+"px";
-game.appendChild(note);
-notesArray.push(note);
+  if(!gameRunning) return;
+  const note=document.createElement("div");
+  note.classList.add("note");
+  note.innerHTML="🎵";
+  note.style.left=game.offsetWidth+"px";
+  note.style.bottom=(60+Math.random()*120)+"px";
+  game.appendChild(note);
+  notesArray.push(note);
 },2500);
 
 /* UPDATE LOOP */
-
 function update(){
+  if(!gameRunning) return;
 
-if(!gameRunning) return;
+  let bottom=parseFloat(player.style.bottom||0);
+  bottom+=velocity;
+  velocity-=gravity;
 
-let bottom=parseFloat(player.style.bottom||0);
-bottom+=velocity;
-velocity-=gravity;
+  if(bottom<=0){
+    bottom=0;
+    velocity=0;
+    isGrounded=true;
+  }
 
-if(bottom<=0){
-bottom=0;
-velocity=0;
-isGrounded=true;
-}
+  player.style.bottom=bottom+"px";
+  const p=player.getBoundingClientRect();
 
-player.style.bottom=bottom+"px";
-const p=player.getBoundingClientRect();
+  sheepArray.forEach((sheep,i)=>{
+    let left=parseFloat(sheep.style.left);
+    left-=speed;
+    sheep.style.left=left+"px";
+    const r=sheep.getBoundingClientRect();
 
-/* COLLISION SHEEP */
-sheepArray.forEach((sheep,i)=>{
-let left=parseFloat(sheep.style.left);
-left-=speed;
-sheep.style.left=left+"px";
-const r=sheep.getBoundingClientRect();
+    if(p.left<r.right && p.right>r.left && p.bottom>r.top){
+      lives--;
+      sheep.remove();
+      sheepArray.splice(i,1);
+      updateInfo();
+      if(lives<=0) endGame();
+    }
 
-if(p.left<r.right && p.right>r.left && p.bottom>r.top){
-lives--;
-sheep.remove();
-sheepArray.splice(i,1);
-updateInfo();
-if(lives<=0) endGame();
-}
+    if(left<-50){
+      sheep.remove();
+      sheepArray.splice(i,1);
+    }
+  });
 
-if(left<-50){
-sheep.remove();
-sheepArray.splice(i,1);
-}
-});
+  notesArray.forEach((note,i)=>{
+    let left=parseFloat(note.style.left);
+    left-=speed;
+    note.style.left=left+"px";
+    const r=note.getBoundingClientRect();
 
-/* COLLISION NOTES */
-notesArray.forEach((note,i)=>{
-let left=parseFloat(note.style.left);
-left-=speed;
-note.style.left=left+"px";
-const r=note.getBoundingClientRect();
+    if(p.left<r.right && p.right>r.left && p.top<r.bottom && p.bottom>r.top){
+      points+=10;
+      note.remove();
+      notesArray.splice(i,1);
+      updateInfo();
 
-if(p.left<r.right && p.right>r.left && p.top<r.bottom && p.bottom>r.top){
-points+=10;
-note.remove();
-notesArray.splice(i,1);
-updateInfo();
+      if(points>=lastSpeedMilestone+30 && speed<maxSpeed){
+        speed+=0.5;
+        lastSpeedMilestone+=30;
+      }
+    }
 
-/* SPEED PROGRESSION */
-if(points>=lastSpeedMilestone+30 && speed<maxSpeed){
-speed+=0.5;
-lastSpeedMilestone+=30;
-}
-}
+    if(left<-50){
+      note.remove();
+      notesArray.splice(i,1);
+    }
+  });
 
-if(left<-50){
-note.remove();
-notesArray.splice(i,1);
-}
-});
-
-requestAnimationFrame(update);
+  requestAnimationFrame(update);
 }
 
 /* INFO */
-
 function updateInfo(){
-info.innerText=`Vite: ${lives} | Punti: ${points}`;
+  info.innerText=`Vite: ${lives} | Punti: ${points}`;
 }
 
 /* GAME OVER */
-
 async function endGame(){
+  gameRunning=false;
+  const duration=(performance.now()-startTime)/1000;
 
-gameRunning=false;
+  await supabaseClient.from("jump").insert({
+    name: currentPlayerName,
+    score: points,
+    time: duration
+  });
 
-const duration=(performance.now()-startTime)/1000;
-
-await supabaseClient.from("jump").insert({
-name: currentPlayerName,
-score: points,
-time: duration
-});
-
-alert("Game Over! A domani 😎");
-location.reload();
+  alert("Game Over! A domani 😎");
+  location.reload();
 }
 </script>
 
