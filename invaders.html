@@ -106,7 +106,6 @@ button, select{
 }
 </style>
 </head>
-
 <body>
 
 <h1>🚀 Morgan Invaders 🚀</h1>
@@ -150,22 +149,18 @@ const TARGET_SCORE = 100;
 
 let player, game;
 let moveLeft = false, moveRight = false;
-let frenzyMode = false;
 let enemySpeed = 4;
 
-const enemySprites = ['https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif'];
-
 /* ================= LOAD PLAYERS ================= */
-
 async function loadPlayerNames(){
   const select = document.getElementById("playerName");
   select.innerHTML = '<option value="">Scegli il tuo nome</option>';
 
-  const { data: players, error } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from('players')
     .select('id, player')
     .is('MorganInvaders', null)
-    .order('player', { ascending: true });
+    .order('player', { ascending:true });
 
   if(error){
     console.error(error);
@@ -173,7 +168,7 @@ async function loadPlayerNames(){
     return;
   }
 
-  players.forEach(p=>{
+  data.forEach(p=>{
     const option = document.createElement('option');
     option.value = p.id;
     option.textContent = p.player;
@@ -182,8 +177,8 @@ async function loadPlayerNames(){
 }
 
 /* ================= START GAME ================= */
-
 async function startGame(){
+
   const nameSelect = document.getElementById("playerName");
   currentPlayerId = nameSelect.value;
   currentPlayerName = nameSelect.options[nameSelect.selectedIndex].text;
@@ -195,18 +190,12 @@ async function startGame(){
 
   const now = new Date().toISOString();
 
-  /* aggiorna tabella players */
-  const { error } = await supabaseClient
+  await supabaseClient
     .from('players')
     .update({ MorganInvaders: now })
     .eq('id', currentPlayerId);
 
-  if(error){
-    console.error(error);
-    return;
-  }
-
-  /* salva LOG di START */
+  // LOG START
   await supabaseClient
     .from('log')
     .insert({
@@ -222,8 +211,6 @@ async function startGame(){
   score = 0;
   updateInfo();
   startTime = performance.now();
-  frenzyMode = false;
-  enemySpeed = 4;
 
   game = document.getElementById("game");
   game.innerHTML = "";
@@ -242,17 +229,12 @@ async function startGame(){
 }
 
 /* ================= CONTROLS ================= */
-
 function setupControls(){
-  const leftBtn = document.getElementById("left-btn");
-  const rightBtn = document.getElementById("right-btn");
-  const fireBtn = document.getElementById("fire-btn");
-
-  leftBtn.onpointerdown = ()=>moveLeft=true;
-  leftBtn.onpointerup = ()=>moveLeft=false;
-  rightBtn.onpointerdown = ()=>moveRight=true;
-  rightBtn.onpointerup = ()=>moveRight=false;
-  fireBtn.onpointerdown = fireBullet;
+  document.getElementById("left-btn").onpointerdown = ()=>moveLeft=true;
+  document.getElementById("left-btn").onpointerup = ()=>moveLeft=false;
+  document.getElementById("right-btn").onpointerdown = ()=>moveRight=true;
+  document.getElementById("right-btn").onpointerup = ()=>moveRight=false;
+  document.getElementById("fire-btn").onpointerdown = fireBullet;
 }
 
 /* ================= GAME LOGIC ================= */
@@ -297,6 +279,28 @@ function gameLoop(){
     let top = parseFloat(enemy.style.top);
     enemy.style.top = top + enemySpeed + "px";
 
+    const eRect = enemy.getBoundingClientRect();
+    const pRect = player.getBoundingClientRect();
+
+    // COLLISION PLAYER - ENEMY
+    if(!(eRect.right < pRect.left || 
+         eRect.left > pRect.right || 
+         eRect.bottom < pRect.top || 
+         eRect.top > pRect.bottom)){
+
+      score -= 15;
+      if(score < 0) score = 0;
+      updateInfo();
+
+      // Vibrazione se supportata
+      if(navigator.vibrate){
+        navigator.vibrate(200);
+      }
+
+      enemy.remove();
+      enemies.splice(i,1);
+    }
+
     if(top > game.clientHeight){
       enemy.remove();
       enemies.splice(i,1);
@@ -335,15 +339,16 @@ function gameLoop(){
 }
 
 /* ================= END GAME ================= */
-
 async function endGame(){
+
   clearInterval(spawnInterval);
 
   const timeElapsed = (performance.now() - startTime)/1000;
 
   await supabaseClient.from('invaders').insert({
     name: currentPlayerName,
-    time: timeElapsed
+    time: timeElapsed,
+    device: deviceId
   });
 
   alert("Fine! 😎");
