@@ -201,7 +201,7 @@ async function startGame(){
   /* ===== INSERT LOG (NUOVO BLOCCO AGGIUNTO) ===== */
   await supabaseClient.from('log').insert({
     created_at: now,
-    gioco: "conticlick",
+    gioco: "invaders",
     player: currentPlayerName,
     device: deviceId
   });
@@ -314,13 +314,6 @@ function gameLoop(){
     if(!(eRect.right < pRect.left || eRect.left > pRect.right || eRect.bottom < pRect.top || eRect.top > pRect.bottom)){
       score -= 15;
       updateInfo();
-
-      /* ===== VIBRAZIONE AGGIUNTA ===== */
-      if(navigator.vibrate){
-        navigator.vibrate(200);
-      }
-      /* =============================== */
-
       enemy.remove();
       enemies.splice(i,1);
     }
@@ -369,29 +362,14 @@ async function endGame(){
   clearInterval(spawnInterval);
   const timeElapsed = (performance.now() - startTime)/1000;
 
-   /* ===== INSERT INVADERS CON DEVICE + CONTROLLO ===== */
-    const { data, error } = await supabaseClient
-  .from('invaders')
-  .insert({
+  /* ===== INSERT INVADERS CON DEVICE ===== */
+  await supabaseClient.from('invaders').insert({
     name: currentPlayerName,
     time: timeElapsed,
     device: deviceId
-  })
-  .select();
-
-if (error) {
-  alert("❌ Errore nel salvataggio");
-  return;
-}
-
-if (!data || data.length === 0) {
-  alert("⚠️ Salvataggio non confermato.");
-  return;
-}
-
-alert("✅ Punteggio salvato correttamente!");
-/* =================================================== */
-
+  });
+  /* ====================================== */
+  
   alert(`Fine! Alla prossima 😎`);
 
   document.getElementById("playerName").disabled = false;
