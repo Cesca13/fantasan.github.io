@@ -132,10 +132,15 @@ const supabaseClient = supabase.createClient(
 );
 
 /* ================= DEVICE ID ================= */
-if(!localStorage.getItem("device_id")){
-  localStorage.setItem("device_id", crypto.randomUUID());
+function getDeviceId(){
+  let deviceId = localStorage.getItem("device_id");
+  if(!deviceId){
+    deviceId = crypto.randomUUID();
+    localStorage.setItem("device_id", deviceId);
+  }
+  return deviceId;
 }
-const deviceId = localStorage.getItem("device_id");
+const deviceId = getDeviceId();
 /* ============================================ */
 
 let score = 0;
@@ -149,26 +154,27 @@ const TARGET_SCORE = 100;
 
 let player, game;
 let moveLeft = false, moveRight = false;
+let frenzyMode = false;
 let enemySpeed = 4;
 
-/* ================= LOAD PLAYERS ================= */
+const enemySprites = ['https://xloiaewcuwelufblecxf.supabase.co/storage/v1/object/public/BFRA/morgan.gif'];
+
+/* --- Carica nomi --- */
 async function loadPlayerNames(){
   const select = document.getElementById("playerName");
   select.innerHTML = '<option value="">Scegli il tuo nome</option>';
 
-  const { data, error } = await supabaseClient
+  const { data: players, error } = await supabaseClient
     .from('players')
     .select('id, player')
-    .is('MorganInvaders', null)
-    .order('player', { ascending:true });
+    .is('MorganInvaders', null);
 
   if(error){
-    console.error(error);
     select.innerHTML = '<option value="">Errore caricamento</option>';
     return;
   }
 
-  data.forEach(p=>{
+  players.forEach(p=>{
     const option = document.createElement('option');
     option.value = p.id;
     option.textContent = p.player;
@@ -182,36 +188,35 @@ async function startGame(){
   const nameSelect = document.getElementById("playerName");
   currentPlayerId = nameSelect.value;
   currentPlayerName = nameSelect.options[nameSelect.selectedIndex].text;
-
-  if(!currentPlayerId){
-    alert("Seleziona un nome!");
-    return;
-  }
+  if(!currentPlayerId){ alert("Seleziona un nome!"); return; }
 
   const now = new Date().toISOString();
 
+  /* UPDATE players */
   await supabaseClient
     .from('players')
     .update({ MorganInvaders: now })
     .eq('id', currentPlayerId);
 
-  // LOG START
-  await supabaseClient
-    .from('log')
-    .insert({
-      created_at: now,
-      gioco: "morganinvaders",
-      player: currentPlayerName,
-      device: deviceId
-    });
+  /* ===== INSERT LOG (NUOVO BLOCCO AGGIUNTO) ===== */
+  await supabaseClient.from('log').insert({
+    created_at: now,
+    gioco: "conticlick",
+    player: currentPlayerName,
+    device: deviceId
+  });
+  /* ============================================== */
 
+  const option = nameSelect.querySelector(`option[value="${currentPlayerId}"]`);
+  if(option) option.remove();
   nameSelect.disabled = true;
   document.querySelector("button").disabled = true;
 
   score = 0;
   updateInfo();
-  enemySpeed = 4 + Math.floor(score / 30);
   startTime = performance.now();
+  frenzyMode = false;
+  enemySpeed = 4;
 
   game = document.getElementById("game");
   game.innerHTML = "";
@@ -226,34 +231,38 @@ async function startGame(){
   spawnInterval = setInterval(spawnEnemy, 800);
   requestAnimationFrame(gameLoop);
 
-  setupControls();
+  const leftBtn = document.getElementById("left-btn");
+  const rightBtn = document.getElementById("right-btn");
+  const fireBtn = document.getElementById("fire-btn");
+
+  leftBtn.onpointerdown = ()=>moveLeft=true;
+  leftBtn.onpointerup = ()=>moveLeft=false;
+  rightBtn.onpointerdown = ()=>moveRight=true;
+  rightBtn.onpointerup = ()=>moveRight=false;
+  fireBtn.onpointerdown = fireBullet;
+
+  game.addEventListener("pointerdown", startDrag);
+  game.addEventListener("pointermove", dragPlayer);
+  game.addEventListener("pointerup", endDrag);
 }
 
-/* ================= CONTROLS ================= */
-function setupControls(){
-  document.getElementById("left-btn").onpointerdown = ()=>moveLeft=true;
-  document.getElementById("left-btn").onpointerup = ()=>moveLeft=false;
-  document.getElementById("right-btn").onpointerdown = ()=>moveRight=true;
-  document.getElementById("right-btn").onpointerup = ()=>moveRight=false;
-  document.getElementById("fire-btn").onpointerdown = fireBullet;
-}
-
-/* ================= GAME LOGIC ================= */
-
+/* --- Update punteggio --- */
 function updateInfo(){
-  document.getElementById("info").innerText =
-    `Punteggio: ${score} | Obiettivo: ${TARGET_SCORE}`;
+  document.getElementById("info").innerText = `Punteggio: ${score} | Obiettivo: ${TARGET_SCORE}`;
 }
 
+/* --- Spawn nemici --- */
 function spawnEnemy(){
   const enemy = document.createElement("div");
   enemy.classList.add("enemy");
+  enemy.style.backgroundImage = `url('${enemySprites[0]}')`;
   enemy.style.left = Math.random()*(game.clientWidth-70) + "px";
   enemy.style.top = "-70px";
   game.appendChild(enemy);
   enemies.push(enemy);
 }
 
+/* --- Fire bullet --- */
 function fireBullet(){
   const bullet = document.createElement("div");
   bullet.classList.add("bullet");
@@ -267,6 +276,18 @@ function fireBullet(){
   bullets.push(bullet);
 }
 
+/* --- Drag --- */
+let dragging = false;
+function startDrag(e){ dragging = true; dragPlayer(e); }
+function dragPlayer(e){
+  if(!dragging) return;
+  let x = e.clientX - player.offsetWidth/2;
+  x = Math.max(0, Math.min(game.clientWidth - player.offsetWidth, x));
+  player.style.left = x + "px";
+}
+function endDrag(){ dragging = false; }
+
+/* ================= GAME LOOP ================= */
 function gameLoop(){
 
   const step = 10;
@@ -276,6 +297,13 @@ function gameLoop(){
   left = Math.max(0, Math.min(game.clientWidth - player.offsetWidth, left));
   player.style.left = left + "px";
 
+  if(score >= 70 && !frenzyMode){
+    frenzyMode = true;
+    enemySpeed = 7;
+    clearInterval(spawnInterval);
+    spawnInterval = setInterval(spawnEnemy, 300);
+  }
+
   enemies.forEach((enemy,i)=>{
     let top = parseFloat(enemy.style.top);
     enemy.style.top = top + enemySpeed + "px";
@@ -283,20 +311,15 @@ function gameLoop(){
     const eRect = enemy.getBoundingClientRect();
     const pRect = player.getBoundingClientRect();
 
-    // COLLISION PLAYER - ENEMY
-    if(!(eRect.right < pRect.left || 
-         eRect.left > pRect.right || 
-         eRect.bottom < pRect.top || 
-         eRect.top > pRect.bottom)){
-
+    if(!(eRect.right < pRect.left || eRect.left > pRect.right || eRect.bottom < pRect.top || eRect.top > pRect.bottom)){
       score -= 15;
-      if(score < 0) score = 0;
       updateInfo();
 
-      // Vibrazione se supportata
+      /* ===== VIBRAZIONE AGGIUNTA ===== */
       if(navigator.vibrate){
         navigator.vibrate(200);
       }
+      /* =============================== */
 
       enemy.remove();
       enemies.splice(i,1);
@@ -315,6 +338,7 @@ function gameLoop(){
     enemies.forEach((enemy,j)=>{
       const eRect = enemy.getBoundingClientRect();
       const bRect = bullet.getBoundingClientRect();
+
       if(!(bRect.right < eRect.left || bRect.left > eRect.right || bRect.bottom < eRect.top || bRect.top > eRect.bottom)){
         score += 10;
         updateInfo();
@@ -343,17 +367,27 @@ function gameLoop(){
 async function endGame(){
 
   clearInterval(spawnInterval);
-
   const timeElapsed = (performance.now() - startTime)/1000;
 
+  /* ===== INSERT INVADERS CON DEVICE ===== */
   await supabaseClient.from('invaders').insert({
     name: currentPlayerName,
     time: timeElapsed,
     device: deviceId
   });
+  /* ====================================== */
 
-  alert("Fine! 😎");
-  location.reload();
+  alert(`Fine! Alla prossima 😎`);
+
+  document.getElementById("playerName").disabled = false;
+  document.querySelector("button").disabled = false;
+
+  game.innerHTML = "";
+  bullets = [];
+  enemies = [];
+  frenzyMode = false;
+  enemySpeed = 4;
+  updateInfo();
 }
 
 loadPlayerNames();
