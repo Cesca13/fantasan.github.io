@@ -67,8 +67,7 @@
   async function loadPlayers() {
     const { data, error } = await supabase
       .from("players")
-      .select("*")
-      .order("name");
+      .select("player");
 
     if (error) {
       alert("Errore caricamento giocatori");
