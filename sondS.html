@@ -46,8 +46,8 @@
 <script>
   // Inizializza Supabase
   const supabase = window.supabase.createClient(
-    "https://xloiaewcuwelufblecxf.supabase.co",      // es. https://xloiaewcuwelufblecxf.supabase.co
-    "sb_publishable_SlM0ePMXPgoJjC47P8o-IQ_w6iEn_OP"  // anon public key
+    "SUPABASE_URL",      // es. https://xloiaewcuwelufblecxf.supabase.co
+    "SUPABASE_ANON_KEY"  // anon public key
   );
 
   let players = [];
@@ -67,7 +67,8 @@
   async function loadPlayers() {
     const { data, error } = await supabase
       .from("players")
-      .select("id,player");
+      .select("*")
+      .order("player"); // usa "player" e non "name"
 
     if (error) {
       alert("Errore caricamento giocatori");
@@ -78,7 +79,7 @@
 
     const voterSelect = document.getElementById("voterSelect");
     players.forEach(p => {
-      voterSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+      voterSelect.innerHTML += `<option value="${p.id}">${p.player}</option>`;
     });
   }
 
@@ -113,7 +114,7 @@
       const select = document.getElementById(id);
       select.innerHTML = "";
       filtered.forEach(p => {
-        select.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+        select.innerHTML += `<option value="${p.id}">${p.player}</option>`;
       });
     });
   }
